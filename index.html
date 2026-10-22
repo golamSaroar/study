@@ -6,56 +6,84 @@
 <title>Study page</title>
 <script src="config.js"></script>
 <style>
-  :root { --ink:#1f2328; --muted:#5b6470; --line:#d9dde3; --bg:#f6f7f9; --brand:#0d6efd; --warn:#b54708; --bad:#b42318; }
+  :root {
+    --ink:#18191b; --ink-2:#3d4046; --muted:#6c707a; --line:#e7e4df; --line-2:#d6d2cb;
+    --bg:#f6f5f2; --paper:#fff; --accent:#245c4c; --accent-soft:#e3eee9; --bad:#a1281b; --rec:#d4402f;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif: "Charter", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
   * { box-sizing:border-box; }
-  body { margin:0; font:16px/1.55 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); }
-  header { background:#212529; color:#fff; padding:14px 28px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:5; }
-  header .title { font-weight:600; font-size:18px; }
+  body { margin:0; font:16.5px/1.6 var(--sans); color:var(--ink); background:var(--bg); -webkit-font-smoothing:antialiased; }
+  header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:18px; height:60px; padding:0 32px; background:var(--bg); border-bottom:1px solid var(--line); }
+  header .title { font:600 18px/1 var(--serif); letter-spacing:-.005em; }
   header .spacer { flex:1; }
-  header .pill { font-size:13px; background:#343a40; padding:4px 10px; border-radius:20px; }
-  header .clock { font-variant-numeric:tabular-nums; font-weight:700; font-size:20px; color:#ffc107; }
-  main { max-width:900px; margin:26px auto 80px; padding:0 20px; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:24px 28px; margin-bottom:18px; }
-  h1 { font-size:24px; margin:0 0 8px; }
-  h2 { font-size:18px; margin:0 0 10px; }
-  .muted { color:var(--muted); font-size:14px; }
-  .goal { background:#fff8e6; border:1px solid #f5d48a; border-radius:10px; padding:14px 18px; margin-bottom:18px; font-weight:500; }
-  .banner { border-radius:10px; padding:16px 20px; margin-bottom:18px; font-size:17px; }
-  .banner.a { background:#eef6ee; border:1px solid #b7dfc0; }
-  .banner.b { background:#eef3ff; border:1px solid #bcd0fb; }
-  .banner.stop { background:#fdecea; border:1px solid #f5b5ae; }
-  .step { display:flex; gap:12px; margin:10px 0; }
-  .num { flex:0 0 28px; height:28px; border-radius:50%; background:#e7f0ff; color:var(--brand); font-weight:700; display:flex; align-items:center; justify-content:center; font-size:14px; }
-  button, .btn { display:inline-block; background:var(--brand); color:#fff; border:0; border-radius:7px; padding:10px 20px; font-size:15px; font-weight:600; cursor:pointer; text-decoration:none; font-family:inherit; }
-  button.secondary { background:#e9ecef; color:var(--ink); }
-  button:disabled { opacity:.5; cursor:default; }
-  label { display:block; font-weight:600; margin:16px 0 6px; }
-  input[type=text], input[type=password] { font-size:18px; padding:9px 12px; border:1px solid var(--line); border-radius:7px; width:260px; }
-  .choices { display:flex; gap:10px; flex-wrap:wrap; }
-  .choices label { font-weight:500; margin:0; border:1px solid var(--line); border-radius:7px; padding:8px 14px; cursor:pointer; }
-  .choices input { margin-right:6px; }
-  .error { color:var(--bad); font-weight:500; margin-top:12px; }
-  .chat { display:flex; flex-direction:column; gap:12px; }
-  .msg { max-width:88%; padding:10px 15px; border-radius:12px; font-size:15px; overflow-wrap:anywhere; }
-  .msg p { margin:6px 0; }
-  .me { align-self:flex-end; background:var(--brand); color:#fff; white-space:pre-wrap; }
-  .ai { align-self:flex-start; background:#f1f3f5; }
-  .ai pre, .note pre { background:#fff; border:1px solid var(--line); border-radius:6px; padding:10px 12px; font-size:13px; overflow:auto; }
-  code { background:#eef0f3; padding:1px 5px; border-radius:4px; font-size:.92em; }
-  pre code { background:none; padding:0; }
-  .me code { background:rgba(255,255,255,.2); }
-  .composer { display:flex; gap:10px; margin-top:16px; align-items:flex-end; }
-  .composer textarea { flex:1; min-height:46px; max-height:180px; resize:vertical; font:inherit; font-size:15px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; }
-  .thinking { color:var(--muted); font-style:italic; font-size:14px; }
-  .note h1 { font-size:22px; } .note h2 { font-size:18px; margin-top:22px; }
-  .note table { border-collapse:collapse; margin:10px 0; font-size:14px; }
-  .note th, .note td { border:1px solid var(--line); padding:5px 9px; text-align:left; }
-  .prompt { background:#fbfbfc; border-left:4px solid var(--brand); padding:14px 18px; margin:14px 0; font-size:16px; }
-  .record { display:flex; align-items:center; gap:18px; margin-top:18px; }
-  .dot { width:22px; height:22px; border-radius:50%; background:#adb5bd; }
-  .dot.on { background:#dc3545; box-shadow:0 0 0 6px #f8d7da; }
-  .big { font-size:30px; font-weight:700; font-variant-numeric:tabular-nums; }
-  .readonly { opacity:.8; }
+  header .clock { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+  header .pill { font-size:13px; color:var(--muted); background:var(--paper); border:1px solid var(--line-2); border-radius:999px; padding:3px 11px; }
+  main { max-width:760px; margin:44px auto 120px; padding:0 24px; }
+  .card { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:30px 34px; margin-bottom:20px; }
+  h1 { font:600 30px/1.2 var(--serif); letter-spacing:-.01em; margin:0 0 14px; }
+  h2 { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 18px; }
+  p { margin:0 0 12px; }
+  .muted { color:var(--muted); font-size:14.5px; }
+  .goal { margin:0 0 30px; padding:2px 0 2px 18px; border-left:2px solid var(--accent); color:var(--ink-2); font-size:17px; }
+  .goal::before { content:"Goal"; display:block; font:600 11.5px/1 var(--sans); letter-spacing:.09em; text-transform:uppercase; color:var(--accent); margin-bottom:7px; }
+  .banner { margin:0 0 22px; }
+  .banner .eyebrow { font:600 12px/1 var(--sans); letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:9px; }
+  .banner .lead { font:400 27px/1.25 var(--serif); letter-spacing:-.01em; }
+  .banner.stop .eyebrow { color:var(--bad); }
+  .step { display:grid; grid-template-columns:26px 1fr; gap:10px; padding:13px 0; border-top:1px solid var(--line); }
+  h1 + .step, h2 + .step { border-top:0; padding-top:2px; }
+  .num { font:600 13px/1.75 var(--mono); color:var(--muted); }
+  button, .btn { display:inline-flex; align-items:center; gap:8px; background:var(--ink); color:#fff; border:1px solid var(--ink); border-radius:9px; padding:11px 20px; font:600 15px/1.2 var(--sans); cursor:pointer; text-decoration:none; transition:background .15s, border-color .15s; }
+  button:hover, .btn:hover { background:#000; }
+  button.secondary, .btn.secondary { background:var(--paper); color:var(--ink); border-color:var(--line-2); }
+  button.secondary:hover, .btn.secondary:hover { border-color:var(--ink); background:var(--paper); }
+  .btn.quiet { background:none; border:0; padding:0; color:var(--accent); font-weight:600; }
+  .btn.quiet::after { content:"→"; }
+  .btn.quiet:hover { background:none; text-decoration:underline; text-underline-offset:3px; }
+  button:disabled { opacity:.45; cursor:default; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  label { display:block; font-weight:600; font-size:14.5px; margin:22px 0 8px; }
+  .card > label:first-child { margin-top:0; }
+  input[type=text], input[type=password] { font:500 18px var(--sans); padding:11px 14px; border:1px solid var(--line-2); border-radius:9px; width:300px; max-width:100%; background:var(--paper); color:var(--ink); }
+  input[type=text]:focus, input[type=password]:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .choices { display:flex; gap:8px; flex-wrap:wrap; }
+  .choices label { margin:0; display:flex; align-items:center; gap:9px; font-weight:500; font-size:15.5px; border:1px solid var(--line-2); border-radius:9px; padding:10px 16px; cursor:pointer; background:var(--paper); }
+  .choices label:has(input:checked) { border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink); }
+  .choices input { accent-color:var(--ink); margin:0; }
+  .error { color:var(--bad); font-weight:500; font-size:14.5px; margin-top:14px; }
+  .chat { display:flex; flex-direction:column; gap:20px; }
+  .msg { font-size:15.5px; overflow-wrap:anywhere; }
+  .msg p { margin:0 0 10px; } .msg p:last-child { margin-bottom:0; }
+  .me { align-self:flex-end; max-width:80%; background:#ecebe6; padding:10px 15px; border-radius:16px 16px 4px 16px; white-space:pre-wrap; }
+  .ai { align-self:stretch; }
+  .ai ol, .ai ul { padding-left:22px; margin:6px 0 10px; }
+  pre { background:#f5f4f0; border:1px solid var(--line); border-radius:10px; padding:14px 16px; font:13px/1.55 var(--mono); overflow:auto; margin:10px 0; }
+  code { font-family:var(--mono); font-size:.87em; background:#efeee9; padding:1px 5px; border-radius:5px; }
+  pre code { background:none; padding:0; font-size:inherit; }
+  .composer { display:flex; gap:10px; align-items:flex-end; margin-top:24px; padding-top:20px; border-top:1px solid var(--line); }
+  .composer textarea { flex:1; min-height:50px; max-height:200px; resize:vertical; font:15.5px/1.5 var(--sans); padding:12px 14px; border:1px solid var(--line-2); border-radius:12px; background:var(--paper); color:var(--ink); }
+  .composer textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .thinking { color:var(--muted); font-size:14.5px; }
+  .note { font-size:16px; }
+  .note h1 { font-size:26px; margin-bottom:18px; }
+  .note h2 { font:600 19px/1.3 var(--serif); text-transform:none; letter-spacing:-.005em; color:var(--ink); margin:30px 0 10px; }
+  .note table { border-collapse:collapse; width:100%; margin:12px 0 16px; font-size:14px; }
+  .note th { text-align:left; font-weight:600; color:var(--ink-2); background:#f5f4f0; }
+  .note th, .note td { border-bottom:1px solid var(--line); padding:8px 10px; }
+  .note ul, .note ol { padding-left:22px; } .note li { margin:4px 0; }
+  .prompt { font:400 20px/1.5 var(--serif); color:var(--ink); border-left:2px solid var(--accent); padding:4px 0 4px 20px; margin:18px 0 22px; }
+  .record { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:22px; padding:18px 20px; border:1px solid var(--line); border-radius:12px; background:#fbfaf8; }
+  .dot { width:14px; height:14px; border-radius:50%; background:#c9c6bf; }
+  .dot.on { background:var(--rec); box-shadow:0 0 0 5px rgba(212,64,47,.15); animation:pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 9px rgba(212,64,47,.05); } }
+  .big { font-size:32px; font-weight:600; line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+  .readonly { opacity:.85; }
+  @media (max-width:640px) {
+    header { padding:0 16px; } main { margin-top:24px; padding:0 14px; }
+    .card { padding:22px 20px; } h1 { font-size:25px; } .banner .lead { font-size:23px; }
+  }
 </style>
 </head>
 <body>
@@ -209,21 +237,21 @@ async function loadNote() {
   return noteHtml;
 }
 
-function formLink(url, label) {
-  return url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`
+function formLink(url, label, quiet) {
+  return url ? `<a class="btn${quiet ? " quiet" : ""}" href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`
              : `<span class="error">(form link not set yet)</span>`;
 }
 
 function groupLine() {
   return S.group === "A"
-    ? `<div class="banner a"><strong>Group A — for this part you work without AI.</strong></div>`
-    : `<div class="banner b"><strong>Group ${S.group} — for this part you have the study assistant.</strong></div>`;
+    ? `<div class="banner"><div class="eyebrow">Group A</div><div class="lead">For this part, you work without AI.</div></div>`
+    : `<div class="banner"><div class="eyebrow">Group ${S.group}</div><div class="lead">For this part, you have the study assistant.</div></div>`;
 }
 
 function renderSetup(err) {
   return `<div class="card"><h1>Before you start</h1>
-    <div class="step"><span class="num">1</span><div>Fill in the consent form. ${formLink(CFG.forms.consent, "Consent form")}</div></div>
-    <div class="step"><span class="num">2</span><div>Do the short warm-up. ${formLink(CFG.forms.warmup, "Warm-up")}</div></div>
+    <div class="step"><span class="num">1</span><div>Fill in the consent form. ${formLink(CFG.forms.consent, "Open the consent form", true)}</div></div>
+    <div class="step"><span class="num">2</span><div>Do the short warm-up. ${formLink(CFG.forms.warmup, "Open the warm-up", true)}</div></div>
     <div class="step"><span class="num">3</span><div>Then fill in the boxes below.</div></div>
   </div>
   <div class="card">
@@ -273,11 +301,11 @@ function renderLearn() {
 
 function renderPaste() {
   const extra = S.group === "C" ? `<div class="step"><span class="num">4</span><div>Close the PrairieLearn tab. Next you'll explain the material out loud — outside the room, so others can't hear you.</div></div>` : "";
-  return `<div class="banner stop"><strong>Time's up for this part.</strong></div>
+  return `<div class="banner stop"><div class="eyebrow">Time</div><div class="lead">Time's up for this part.</div></div>
     <div class="card"><h2>Save a copy of your code</h2>
-    <div class="step"><span class="num">1</span><div>In PrairieLearn, click <strong>Save only</strong>.</div></div>
+    <div class="step"><span class="num">1</span><div>In PrairieLearn, click <strong>Save only</strong> so your work is kept.</div></div>
     <div class="step"><span class="num">2</span><div>Click inside the code editor, select everything (Ctrl/Cmd + A) and copy it (Ctrl/Cmd + C). Unfinished code is fine.</div></div>
-    <div class="step"><span class="num">3</span><div>Paste it into this form and submit. ${formLink(CFG.forms.code, "Code form")}</div></div>
+    <div class="step"><span class="num">3</span><div>Paste it into the code form and submit. ${formLink(CFG.forms.code, "Open the code form", true)}</div></div>
     ${extra}
     <p style="margin-top:18px"><button id="cont">Done — continue</button></p></div>`;
 }
@@ -330,7 +358,7 @@ function recordUrl() { return new URL(CFG.recordUrl || "record.html", location.h
 function renderWrap() {
   if (S.recMode === "phone") {
     return `<div class="card"><h1>Almost done</h1>
-      <p>You filled in the last form on your phone. If you didn't manage to, open it here: ${formLink(CFG.forms.wrapup, "Last form")}</p>
+      <p>You filled in the last form on your phone. If you didn't manage to, open it here: ${formLink(CFG.forms.wrapup, "Open the last form", true)}</p>
       <p style="margin-top:18px"><button id="finish">Finish</button></p></div>`;
   }
   const dl = (S.group === "C" && S.audio === "yes")
@@ -341,7 +369,7 @@ function renderWrap() {
     : "";
   return `<div class="card"><h1>One last step</h1>${dl}
     <p>Open the last form — one quick question — and submit it.</p>
-    <p>${formLink(CFG.forms.wrapup, "Last form")}</p>
+    <p>${formLink(CFG.forms.wrapup, "Open the last form")}</p>
     <p style="margin-top:18px"><button id="finish">Finish</button></p></div>`;
 }
 
