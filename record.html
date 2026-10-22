@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explain it out loud</title>
+<script src="config.js"></script>
+<style>
+  :root { --ink:#1f2328; --muted:#5b6470; --line:#d9dde3; --brand:#0d6efd; --bad:#b42318; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:17px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color:var(--ink); background:#f6f7f9; }
+  header { background:#212529; color:#fff; padding:14px 18px; font-weight:600; display:flex; justify-content:space-between; }
+  main { padding:16px; max-width:560px; margin:0 auto; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:14px; }
+  h1 { font-size:22px; margin:0 0 10px; }
+  .muted { color:var(--muted); font-size:15px; }
+  .prompt { background:#fbfbfc; border-left:4px solid var(--brand); padding:12px 14px; margin:12px 0; }
+  input { font-size:20px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; width:100%; }
+  button, .btn { display:block; width:100%; text-align:center; background:var(--brand); color:#fff; border:0; border-radius:10px; padding:14px; font-size:18px; font-weight:600; margin-top:14px; text-decoration:none; font-family:inherit; }
+  button.stop { background:#dc3545; }
+  button:disabled { opacity:.5; }
+  .big { font-size:44px; font-weight:700; text-align:center; font-variant-numeric:tabular-nums; margin:10px 0 0; }
+  .error { color:var(--bad); margin-top:10px; }
+  ol { padding-left:20px; } li { margin:8px 0; }
+</style>
+</head>
+<body>
+<header><span>Explain it out loud</span><span id="who"></span></header>
+<main id="app"></main>
+<script>
+const CFG = window.STUDY_CONFIG;
+const LIMIT = CFG.minutes.followUp * 60000;
+let studyId = "", recorder = null, chunks = [], startedAt = null, file = null, timer = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = ms => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+function show(html) { $("app").innerHTML = html; }
+
+function screenId(err) {
+  show(`<div class="card"><h1>Before you start</h1>
+    <p class="muted">Use this page only if you're in Group C and you agreed to audio recording on the consent form. Do this outside the room, where others can't hear you.</p>
+    <label for="sid"><strong>Study ID (on your card)</strong></label>
+    <input id="sid" type="text" inputmode="numeric" autocomplete="off" value="${esc(studyId)}">
+    <button id="next">Continue</button>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`);
+  $("next").onclick = () => {
+    studyId = $("sid").value.trim();
+    if (!studyId) return screenId("Enter the study ID from your card.");
+    $("who").textContent = "ID " + studyId;
+    screenRecord();
+  };
+}
+
+function screenRecord(err) {
+  show(`<div class="card">
+    <div class="prompt">${esc(CFG.teachBackPrompt)}</div>
+    <p class="muted">Talk from memory, for up to ${CFG.minutes.followUp} minutes. Small mistakes are fine — correct yourself if you notice one. This isn't graded.</p>
+    <div class="big" id="time">0:00</div>
+    <p class="muted" id="status" style="text-align:center">Press Start when you're ready.</p>
+    <button id="start">Start recording</button>
+    <button id="stop" class="stop" disabled>Stop</button>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`);
+  $("start").onclick = start;
+  $("stop").onclick = stop;
+}
+
+function pickMime() {
+  for (const t of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return "";
+}
+
+async function start() {
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { return screenRecord("The microphone didn't start. Allow microphone access for this page and try again — or explain it out loud anyway and tell the researcher."); }
+  const mime = pickMime();
+  recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  recorder.onstop = () => {
+    stream.getTracks().forEach(t => t.stop());
+    clearInterval(timer);
+    const type = recorder.mimeType || "audio/webm";
+    const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+    file = { url: URL.createObjectURL(new Blob(chunks, { type })), name: `${studyId}-explanation.${ext}` };
+    screenSave();
+  };
+  recorder.start(1000);
+  startedAt = Date.now();
+  $("start").disabled = true;
+  $("stop").disabled = false;
+  $("status").textContent = "Recording…";
+  timer = setInterval(() => {
+    const elapsed = Date.now() - startedAt;
+    $("time").textContent = fmt(Math.min(elapsed, LIMIT));
+    if (elapsed >= LIMIT) stop();
+  }, 250);
+}
+
+function stop() {
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+}
+
+function screenSave() {
+  const form = CFG.forms.wrapup;
+  show(`<div class="card"><h1>Done — now send it</h1>
+    <ol>
+      <li>Save the recording to your phone.
+        <a class="btn" href="${file.url}" download="${esc(file.name)}">Save recording</a></li>
+      <li>Open the last form, sign in with your York account, upload <strong>${esc(file.name)}</strong>, answer the question, and submit.
+        ${form ? `<a class="btn" href="${esc(form)}" target="_blank" rel="noopener">Open the last form</a>` : `<div class="error">(form link not set yet)</div>`}</li>
+      <li>Delete the recording from your phone's downloads.</li>
+      <li>Go back to the lab and press <strong>Finish</strong> on the computer.</li>
+    </ol></div>`);
+}
+
+screenId();
+</script>
+</body>
+</html>

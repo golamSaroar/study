@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study page</title>
+<script src="config.js"></script>
+<style>
+  :root { --ink:#1f2328; --muted:#5b6470; --line:#d9dde3; --bg:#f6f7f9; --brand:#0d6efd; --warn:#b54708; --bad:#b42318; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.55 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:#212529; color:#fff; padding:14px 28px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:5; }
+  header .title { font-weight:600; font-size:18px; }
+  header .spacer { flex:1; }
+  header .pill { font-size:13px; background:#343a40; padding:4px 10px; border-radius:20px; }
+  header .clock { font-variant-numeric:tabular-nums; font-weight:700; font-size:20px; color:#ffc107; }
+  main { max-width:900px; margin:26px auto 80px; padding:0 20px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:24px 28px; margin-bottom:18px; }
+  h1 { font-size:24px; margin:0 0 8px; }
+  h2 { font-size:18px; margin:0 0 10px; }
+  .muted { color:var(--muted); font-size:14px; }
+  .goal { background:#fff8e6; border:1px solid #f5d48a; border-radius:10px; padding:14px 18px; margin-bottom:18px; font-weight:500; }
+  .banner { border-radius:10px; padding:16px 20px; margin-bottom:18px; font-size:17px; }
+  .banner.a { background:#eef6ee; border:1px solid #b7dfc0; }
+  .banner.b { background:#eef3ff; border:1px solid #bcd0fb; }
+  .banner.stop { background:#fdecea; border:1px solid #f5b5ae; }
+  .step { display:flex; gap:12px; margin:10px 0; }
+  .num { flex:0 0 28px; height:28px; border-radius:50%; background:#e7f0ff; color:var(--brand); font-weight:700; display:flex; align-items:center; justify-content:center; font-size:14px; }
+  button, .btn { display:inline-block; background:var(--brand); color:#fff; border:0; border-radius:7px; padding:10px 20px; font-size:15px; font-weight:600; cursor:pointer; text-decoration:none; font-family:inherit; }
+  button.secondary { background:#e9ecef; color:var(--ink); }
+  button:disabled { opacity:.5; cursor:default; }
+  label { display:block; font-weight:600; margin:16px 0 6px; }
+  input[type=text], input[type=password] { font-size:18px; padding:9px 12px; border:1px solid var(--line); border-radius:7px; width:260px; }
+  .choices { display:flex; gap:10px; flex-wrap:wrap; }
+  .choices label { font-weight:500; margin:0; border:1px solid var(--line); border-radius:7px; padding:8px 14px; cursor:pointer; }
+  .choices input { margin-right:6px; }
+  .error { color:var(--bad); font-weight:500; margin-top:12px; }
+  .chat { display:flex; flex-direction:column; gap:12px; }
+  .msg { max-width:88%; padding:10px 15px; border-radius:12px; font-size:15px; overflow-wrap:anywhere; }
+  .msg p { margin:6px 0; }
+  .me { align-self:flex-end; background:var(--brand); color:#fff; white-space:pre-wrap; }
+  .ai { align-self:flex-start; background:#f1f3f5; }
+  .ai pre, .note pre { background:#fff; border:1px solid var(--line); border-radius:6px; padding:10px 12px; font-size:13px; overflow:auto; }
+  code { background:#eef0f3; padding:1px 5px; border-radius:4px; font-size:.92em; }
+  pre code { background:none; padding:0; }
+  .me code { background:rgba(255,255,255,.2); }
+  .composer { display:flex; gap:10px; margin-top:16px; align-items:flex-end; }
+  .composer textarea { flex:1; min-height:46px; max-height:180px; resize:vertical; font:inherit; font-size:15px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; }
+  .thinking { color:var(--muted); font-style:italic; font-size:14px; }
+  .note h1 { font-size:22px; } .note h2 { font-size:18px; margin-top:22px; }
+  .note table { border-collapse:collapse; margin:10px 0; font-size:14px; }
+  .note th, .note td { border:1px solid var(--line); padding:5px 9px; text-align:left; }
+  .prompt { background:#fbfbfc; border-left:4px solid var(--brand); padding:14px 18px; margin:14px 0; font-size:16px; }
+  .record { display:flex; align-items:center; gap:18px; margin-top:18px; }
+  .dot { width:22px; height:22px; border-radius:50%; background:#adb5bd; }
+  .dot.on { background:#dc3545; box-shadow:0 0 0 6px #f8d7da; }
+  .big { font-size:30px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .readonly { opacity:.8; }
+</style>
+</head>
+<body>
+<header>
+  <span class="title" id="title">Study page</span>
+  <span class="spacer"></span>
+  <span class="clock" id="clock"></span>
+  <span class="pill" id="who" hidden></span>
+</header>
+<main id="app"></main>
+
+<script>
+const CFG = window.STUDY_CONFIG;
+const MOCK = new URLSearchParams(location.search).has("mock");
+const STORE = "study:" + CFG.session;
+const FAST = MOCK && new URLSearchParams(location.search).has("fast");
+const LEARN_MS = FAST ? 20000 : CFG.minutes.learn * 60000;
+const FOLLOW_MS = FAST ? 15000 : CFG.minutes.followUp * 60000;
+
+let S = loadState();
+let key = null;
+let transcript = [];
+let busy = false;
+let recorder = null, chunks = [], recording = null, recStartedAt = null;
+
+document.getElementById("title").textContent = CFG.title;
+document.title = CFG.title;
+
+function loadState() {
+  try { return JSON.parse(sessionStorage.getItem(STORE)) || { phase: "setup" }; }
+  catch { return { phase: "setup" }; }
+}
+function saveState() { sessionStorage.setItem(STORE, JSON.stringify(S)); }
+function setPhase(p) { S.phase = p; saveState(); render(); }
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function inline(s) {
+  return s.replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+          .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+}
+function md(src) {
+  const lines = esc(src).split("\n");
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line)) {
+      const buf = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      out.push("<pre><code>" + buf.join("\n") + "</code></pre>");
+    } else if (/^#{1,4} /.test(line)) {
+      const level = Math.min(line.match(/^#+/)[0].length, 3);
+      out.push(`<h${level}>${inline(line.replace(/^#+ /, ""))}</h${level}>`);
+      i++;
+    } else if (/^\|/.test(line)) {
+      const rows = [];
+      while (i < lines.length && /^\|/.test(lines[i])) rows.push(lines[i++]);
+      const cells = r => r.replace(/^\||\|$/g, "").split(/(?<!\\)\|/).map(c => inline(c.trim().replace(/\\\|/g, "|")));
+      const body = rows.filter((r, k) => k !== 1 || !/^\|[\s\-:|]+\|$/.test(r));
+      out.push("<table>" + body.map((r, k) => "<tr>" + cells(r).map(c => k === 0 ? `<th>${c}</th>` : `<td>${c}</td>`).join("") + "</tr>").join("") + "</table>");
+    } else if (/^\s*[-*] /.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*[-*] /.test(lines[i])) items.push(lines[i++].replace(/^\s*[-*] /, ""));
+      out.push("<ul>" + items.map(t => `<li>${inline(t)}</li>`).join("") + "</ul>");
+    } else if (/^\s*\d+\. /.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*\d+\. /.test(lines[i])) items.push(lines[i++].replace(/^\s*\d+\. /, ""));
+      out.push("<ol>" + items.map(t => `<li>${inline(t)}</li>`).join("") + "</ol>");
+    } else if (line.trim() === "") {
+      i++;
+    } else {
+      const buf = [];
+      while (i < lines.length && lines[i].trim() !== "" && !/^(```|#{1,4} |\||\s*[-*] |\s*\d+\. )/.test(lines[i])) buf.push(lines[i++]);
+      out.push("<p>" + inline(buf.join(" ")) + "</p>");
+    }
+  }
+  return out.join("\n");
+}
+
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function unlockKey(code) {
+  if (MOCK) return "mock";
+  const e = CFG.encryptedKey;
+  if (!e) throw new Error("This page hasn't been set up with a session code yet.");
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(code.trim().toLowerCase()), "PBKDF2", false, ["deriveKey"]);
+  const aes = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64(e.salt), iterations: e.iterations, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(e.iv) }, aes, b64(e.ct));
+  return new TextDecoder().decode(plain);
+}
+
+async function askAssistant() {
+  if (MOCK) {
+    await new Promise(r => setTimeout(r, 700));
+    return "**Mock reply.** In a max-heap every parent is at least as large as its children.\n\n```java\nprotected void bubbleDown(int[] arr, int n, int i) {\n    // ...\n}\n```";
+  }
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+    body: JSON.stringify({
+      model: CFG.model,
+      messages: [{ role: "system", content: CFG.systemPrompt }, ...transcript],
+      ...(CFG.reasoningEffort ? { reasoning_effort: CFG.reasoningEffort } : {}),
+      store: true,
+      metadata: { study_id: S.studyId, group: S.group, session: CFG.session }
+    })
+  });
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.json()).error.message; } catch {}
+    throw new Error(detail || ("HTTP " + res.status));
+  }
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
+
+function remaining(start, ms) { return Math.max(0, start + ms - Date.now()); }
+function fmt(ms) { const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+
+function tick() {
+  const clock = document.getElementById("clock");
+  if (S.phase === "learn") {
+    const left = remaining(S.startedAt, LEARN_MS);
+    clock.textContent = fmt(left);
+    if (left === 0) setPhase("paste");
+  } else if (S.phase === "follow" && S.followStartedAt) {
+    const left = remaining(S.followStartedAt, FOLLOW_MS);
+    clock.textContent = fmt(left);
+    const r = document.getElementById("rec-time");
+    if (r && recStartedAt) r.textContent = fmt(Date.now() - recStartedAt);
+    if (left === 0) { stopRecording(); setPhase("wrap"); }
+  } else {
+    clock.textContent = "";
+  }
+}
+setInterval(tick, 500);
+
+window.addEventListener("beforeunload", e => {
+  if (["learn", "paste", "follow"].includes(S.phase)) { e.preventDefault(); e.returnValue = ""; }
+});
+
+let noteHtml = null;
+async function loadNote() {
+  if (noteHtml !== null) return noteHtml;
+  try { noteHtml = md(await (await fetch(CFG.noteUrl)).text()); }
+  catch { noteHtml = "<p class='error'>The study note didn't load. Tell the researcher.</p>"; }
+  return noteHtml;
+}
+
+function formLink(url, label) {
+  return url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`
+             : `<span class="error">(form link not set yet)</span>`;
+}
+
+function groupLine() {
+  return S.group === "A"
+    ? `<div class="banner a"><strong>Group A — for this part you work without AI.</strong></div>`
+    : `<div class="banner b"><strong>Group ${S.group} — for this part you have the study assistant.</strong></div>`;
+}
+
+function renderSetup(err) {
+  return `<div class="card"><h1>Before you start</h1>
+    <div class="step"><span class="num">1</span><div>Fill in the consent form. ${formLink(CFG.forms.consent, "Consent form")}</div></div>
+    <div class="step"><span class="num">2</span><div>Do the short warm-up. ${formLink(CFG.forms.warmup, "Warm-up")}</div></div>
+    <div class="step"><span class="num">3</span><div>Then fill in the boxes below.</div></div>
+  </div>
+  <div class="card">
+    <label for="sid">Study ID (on your card)</label>
+    <input id="sid" type="text" autocomplete="off" value="${esc(S.studyId || "")}">
+    <label>Group (on your card)</label>
+    <div class="choices">${["A", "B", "C"].map(g => `<label><input type="radio" name="grp" value="${g}" ${S.group === g ? "checked" : ""}>Group ${g}</label>`).join("")}</div>
+    <label>On the consent form, did you agree to audio recording?</label>
+    <div class="choices"><label><input type="radio" name="aud" value="yes">Yes</label><label><input type="radio" name="aud" value="no">No</label></div>
+    <label for="code">Session code (on the screen)</label>
+    <input id="code" type="text" autocomplete="off" spellcheck="false">
+    <div style="margin-top:20px"><button id="go">Continue</button></div>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}
+  </div>`;
+}
+
+function renderReady() {
+  const what = S.group === "A"
+    ? "You'll work on the Heap Sort question in PrairieLearn without AI, using the study note on this page."
+    : "You'll work on the Heap Sort question in PrairieLearn with the study assistant on this page.";
+  return `${groupLine()}<div class="card"><h1>Wait for the signal</h1>
+    <p>${what}</p><p>You'll have ${CFG.minutes.learn} minutes. When the researcher says go, press Start.</p>
+    <button id="start">Start</button></div>`;
+}
+
+function renderLearn() {
+  let body;
+  if (S.group === "A") {
+    body = `<div class="card"><h2>What to do</h2>
+      <div class="step"><span class="num">1</span><div>In PrairieLearn, open <strong>Lab 4 → Heap Sort</strong> and work on it.</div></div>
+      <div class="step"><span class="num">2</span><div>Use the study note below and your own lecture notes. No AI tools and no web search for this part.</div></div>
+      <div class="step"><span class="num">3</span><div>Keep this page open. When time is up it tells you what's next.</div></div></div>
+      <div class="card note" id="note">Loading the study note…</div>`;
+  } else {
+    body = `<div class="card"><h2>What to do</h2>
+      <div class="step"><span class="num">1</span><div>In PrairieLearn, open <strong>Lab 4 → Heap Sort</strong> and work on it.</div></div>
+      <div class="step"><span class="num">2</span><div>Use the assistant below however you normally would. You can also use your lecture notes.</div></div>
+      <div class="step"><span class="num">3</span><div>Keep this page open. When time is up it tells you what's next.</div></div></div>
+      ${key ? "" : `<div class="card"><label for="code2">Enter the session code again (the page was reloaded)</label>
+        <input id="code2" type="text" autocomplete="off"> <button id="unlock2">Unlock</button><div class="error" id="unlock-err"></div></div>`}
+      <div class="card"><div class="chat" id="chat"></div>
+        <div class="composer"><textarea id="msg" placeholder="Ask the assistant… (Enter to send, Shift+Enter for a new line)" ${key ? "" : "disabled"}></textarea>
+        <button id="send" ${key ? "" : "disabled"}>Send</button></div></div>`;
+  }
+  return `<div class="goal">${esc(CFG.goal)}</div>${groupLine()}${body}`;
+}
+
+function renderPaste() {
+  const extra = S.group === "C" ? `<div class="step"><span class="num">4</span><div>Close the PrairieLearn tab. Next you'll explain the material out loud — outside the room, so others can't hear you.</div></div>` : "";
+  return `<div class="banner stop"><strong>Time's up for this part.</strong></div>
+    <div class="card"><h2>Save a copy of your code</h2>
+    <div class="step"><span class="num">1</span><div>In PrairieLearn, click <strong>Save only</strong>.</div></div>
+    <div class="step"><span class="num">2</span><div>Click inside the code editor, select everything (Ctrl/Cmd + A) and copy it (Ctrl/Cmd + C). Unfinished code is fine.</div></div>
+    <div class="step"><span class="num">3</span><div>Paste it into this form and submit. ${formLink(CFG.forms.code, "Code form")}</div></div>
+    ${extra}
+    <p style="margin-top:18px"><button id="cont">Done — continue</button></p></div>`;
+}
+
+function transcriptHtml() {
+  if (!transcript.length) return `<p class="muted">No messages.</p>`;
+  return transcript.map(m => m.role === "user" ? `<div class="msg me">${esc(m.content)}</div>` : `<div class="msg ai">${md(m.content)}</div>`).join("");
+}
+
+function renderFollow() {
+  if (S.group === "C") {
+    const prompt = `<div class="prompt">${esc(CFG.teachBackPrompt)}</div>`;
+    const rules = `<p class="muted" style="margin-top:18px">Talk from memory: no code, notes or assistant. Small mistakes are fine — correct yourself if you notice one. This isn't graded.</p>`;
+    if (S.audio !== "yes") {
+      return `<div class="card"><h1>Explain it out loud — outside the room</h1>
+        <p>Step out to the corridor for ${CFG.minutes.followUp} minutes and explain this out loud. Nothing is recorded.</p>
+        ${prompt}${rules}<p>Come back when the ${CFG.minutes.followUp} minutes are up.</p></div>`;
+    }
+    if (!S.recMode) {
+      return `<div class="card"><h1>Explain it out loud — outside the room</h1>
+        <p>You'll record yourself explaining what you just worked on. Do it outside the room, so others can't hear you. Earbuds with a mic help if you have them.</p>
+        <p style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px"><button id="mode-phone">Record on my phone</button><button id="mode-laptop" class="secondary">Record on this laptop</button></p>
+        <p class="muted">Only choose "this laptop" if it's your own laptop and you can take it outside.</p></div>`;
+    }
+    if (S.recMode === "phone") {
+      return `<div class="card"><h1>Record on your phone</h1>
+        <div class="step"><span class="num">1</span><div>Take your phone to the corridor.</div></div>
+        <div class="step"><span class="num">2</span><div>Open <strong>${esc(recordUrl())}</strong> on your phone, or scan the QR code on the sheet.</div></div>
+        <div class="step"><span class="num">3</span><div>Follow the steps there. They end with the last form, which you fill in on your phone.</div></div>
+        <div class="step"><span class="num">4</span><div>Come back and press Finish.</div></div>
+        <p style="margin-top:18px"><button id="finish">Finish</button></p></div>`;
+    }
+    return `<div class="card"><h1>Explain it out loud</h1>
+      <p>Take this laptop outside the room, then press Start recording.</p>
+      ${prompt}
+      <div class="record"><div class="dot" id="dot"></div><div><div class="big" id="rec-time">0:00</div><div class="muted" id="rec-status">Not recording yet</div></div>
+        <button id="rec-start">Start recording</button><button id="rec-stop" class="secondary" disabled>Stop</button></div>
+      ${rules}</div>`;
+  }
+  const extra = S.group === "A"
+    ? `<div class="card note" id="note">Loading the study note…</div>`
+    : `<div class="card readonly"><h2>Your conversation</h2><div class="chat">${transcriptHtml()}</div></div>`;
+  return `<div class="card"><h1>Look back over your work</h1>
+    <p>Re-read your Heap Sort code in PrairieLearn${S.group === "A" ? " and the study note" : " and your conversation below"}. Try to understand why it works.</p>
+    <p class="muted">Don't change your code for these ${CFG.minutes.followUp} minutes, and there's nothing to write. The page moves on by itself.</p></div>${extra}`;
+}
+
+function recordUrl() { return new URL(CFG.recordUrl || "record.html", location.href).href.replace(/^https?:\/\//, ""); }
+
+function renderWrap() {
+  if (S.recMode === "phone") {
+    return `<div class="card"><h1>Almost done</h1>
+      <p>You filled in the last form on your phone. If you didn't manage to, open it here: ${formLink(CFG.forms.wrapup, "Last form")}</p>
+      <p style="margin-top:18px"><button id="finish">Finish</button></p></div>`;
+  }
+  const dl = (S.group === "C" && S.audio === "yes")
+    ? (recording
+        ? `<div class="step"><span class="num">1</span><div><a class="btn" href="${recording.url}" download="${esc(recording.name)}">Download your recording</a></div></div>
+           <div class="step"><span class="num">2</span><div>Open the form below, upload the file, and answer the question. Then delete the file from your laptop.</div></div>`
+        : `<p class="muted">No recording was saved.</p>`)
+    : "";
+  return `<div class="card"><h1>One last step</h1>${dl}
+    <p>Open the last form — one quick question — and submit it.</p>
+    <p>${formLink(CFG.forms.wrapup, "Last form")}</p>
+    <p style="margin-top:18px"><button id="finish">Finish</button></p></div>`;
+}
+
+function renderDone() {
+  return `<div class="card"><h1>That's it — thank you</h1>
+    <p>Carry on with Lab 4 as normal. You have until ${esc(CFG.deadline)}.</p></div>`;
+}
+
+async function render() {
+  const app = document.getElementById("app");
+  const who = document.getElementById("who");
+  who.hidden = !S.studyId;
+  who.textContent = S.studyId ? `ID ${S.studyId} · Group ${S.group}` : "";
+  const views = { setup: renderSetup, ready: renderReady, learn: renderLearn, paste: renderPaste, follow: renderFollow, wrap: renderWrap, done: renderDone };
+  app.innerHTML = (views[S.phase] || renderSetup)();
+  wire();
+  const note = document.getElementById("note");
+  if (note) note.innerHTML = await loadNote();
+  const chat = document.getElementById("chat");
+  if (chat) { chat.innerHTML = transcriptHtml(); chat.scrollIntoView({ block: "end" }); }
+  tick();
+}
+
+function wire() {
+  const $ = id => document.getElementById(id);
+  if ($("go")) $("go").onclick = async () => {
+    const sid = $("sid").value.trim();
+    const grp = document.querySelector("input[name=grp]:checked");
+    const aud = document.querySelector("input[name=aud]:checked");
+    if (!sid) return showSetupError("Enter the study ID from your card.");
+    if (!grp) return showSetupError("Choose your group.");
+    if (!aud) return showSetupError("Answer the audio-recording question.");
+    try { key = await unlockKey($("code").value); }
+    catch (e) { return showSetupError(e.message.includes("set up") ? e.message : "That session code didn't work. Check the screen and try again."); }
+    Object.assign(S, { studyId: sid, group: grp.value, audio: aud.value });
+    setPhase("ready");
+  };
+  if ($("start")) $("start").onclick = () => { S.startedAt = Date.now(); setPhase("learn"); };
+  if ($("unlock2")) $("unlock2").onclick = async () => {
+    try { key = await unlockKey($("code2").value); render(); }
+    catch { $("unlock-err").textContent = "That session code didn't work."; }
+  };
+  if ($("send")) {
+    const box = $("msg");
+    const send = async () => {
+      const text = box.value.trim();
+      if (!text || busy || S.phase !== "learn") return;
+      busy = true; box.value = "";
+      transcript.push({ role: "user", content: text });
+      const chat = $("chat");
+      chat.innerHTML = transcriptHtml() + `<div class="thinking">The assistant is thinking…</div>`;
+      chat.scrollIntoView({ block: "end" });
+      $("send").disabled = true;
+      try { transcript.push({ role: "assistant", content: await askAssistant() }); }
+      catch (e) { transcript.pop(); box.value = text; alert("The assistant didn't respond (" + e.message + "). Try again."); }
+      busy = false;
+      if (S.phase === "learn") { chat.innerHTML = transcriptHtml(); chat.scrollIntoView({ block: "end" }); $("send").disabled = false; box.focus(); }
+    };
+    $("send").onclick = send;
+    box.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
+  }
+  if ($("cont")) $("cont").onclick = () => {
+    S.followStartedAt = (S.group === "C" && S.audio === "yes") ? null : Date.now();
+    setPhase("follow");
+  };
+  const choose = mode => { S.recMode = mode; S.followStartedAt = Date.now(); setPhase("follow"); };
+  if ($("mode-phone")) $("mode-phone").onclick = () => choose("phone");
+  if ($("mode-laptop")) $("mode-laptop").onclick = () => choose("laptop");
+  if ($("rec-start")) $("rec-start").onclick = startRecording;
+  if ($("rec-stop")) $("rec-stop").onclick = stopRecording;
+  if ($("finish")) $("finish").onclick = () => {
+    if (recording && !confirm("Did you upload your recording in the last form?")) return;
+    setPhase("done");
+  };
+}
+
+function showSetupError(msg) {
+  const sid = document.getElementById("sid").value;
+  const grp = document.querySelector("input[name=grp]:checked");
+  const aud = document.querySelector("input[name=aud]:checked");
+  const code = document.getElementById("code").value;
+  document.getElementById("app").innerHTML = renderSetup(msg);
+  document.getElementById("sid").value = sid;
+  document.getElementById("code").value = code;
+  if (grp) document.querySelector(`input[name=grp][value=${grp.value}]`).checked = true;
+  if (aud) document.querySelector(`input[name=aud][value=${aud.value}]`).checked = true;
+  wire();
+}
+
+function pickMime() {
+  for (const t of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return "";
+}
+async function startRecording() {
+  const status = document.getElementById("rec-status");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = pickMime();
+    recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    chunks = [];
+    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const type = recorder.mimeType || "audio/webm";
+      const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+      const blob = new Blob(chunks, { type });
+      recording = { url: URL.createObjectURL(blob), name: `${S.studyId}-explanation.${ext}` };
+      recStartedAt = null;
+      const s = document.getElementById("rec-status");
+      if (s) s.textContent = "Saved. You'll upload it in the last step.";
+      const dot = document.getElementById("dot"); if (dot) dot.classList.remove("on");
+      const b = document.getElementById("rec-stop"); if (b) b.disabled = true;
+    };
+    recorder.start(1000);
+    recStartedAt = Date.now();
+    status.textContent = "Recording…";
+    document.getElementById("dot").classList.add("on");
+    document.getElementById("rec-start").disabled = true;
+    document.getElementById("rec-stop").disabled = false;
+  } catch (e) {
+    status.textContent = "The microphone didn't start. Explain it out loud anyway and tell the researcher.";
+  }
+}
+function stopRecording() {
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+}
+
+render();
+</script>
+</body>
+</html>
