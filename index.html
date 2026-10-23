@@ -333,7 +333,7 @@ function renderFollow() {
     if (S.recMode === "phone") {
       return `<div class="card"><h1>Record on your phone</h1>
         <div class="step"><span class="num">1</span><div>Take your phone to the corridor.</div></div>
-        <div class="step"><span class="num">2</span><div>Open <strong>${esc(recordUrl())}</strong> on your phone, or scan the QR code on the sheet.</div></div>
+        <div class="step"><span class="num">2</span><div>Open <strong>${esc(recordUrl())}</strong> on your phone, or scan the QR code at the front of the room.</div></div>
         <div class="step"><span class="num">3</span><div>Follow the steps there. They end with the last form, which you fill in on your phone.</div></div>
         <div class="step"><span class="num">4</span><div>Come back and press Finish.</div></div>
         <p style="margin-top:18px"><button id="finish">Finish</button></p></div>`;
@@ -460,7 +460,7 @@ function showSetupError(msg) {
 }
 
 function pickMime() {
-  for (const t of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]) {
+  for (const t of ["audio/mp4;codecs=mp4a.40.2", "audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"]) {
     if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t;
   }
   return "";

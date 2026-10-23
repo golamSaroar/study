@@ -79,7 +79,7 @@ function screenRecord(err) {
 }
 
 function pickMime() {
-  for (const t of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]) {
+  for (const t of ["audio/mp4;codecs=mp4a.40.2", "audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"]) {
     if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t;
   }
   return "";
