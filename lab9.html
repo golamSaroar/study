@@ -368,10 +368,15 @@ function answersUrl() {
 function renderIntro(err) {
   return `<div class="card"><h1>Lab 9 study</h1>
     <p>Thanks for considering the study. It takes about 45 minutes, and after that you do Lab 9 as usual. Taking part is optional.</p>
-    <p>On the consent form you'll be asked whether you agree to <strong>audio recording</strong>: some students explain the topic out loud for 4 minutes, outside the room, and that explanation is recorded only if you agree. Only the research team hears it, and it's deleted once it's transcribed.</p>
-    <p class="q" style="margin-top:20px">Will you agree to audio recording?</p>
-    <div class="choices"><label><input type="radio" name="aud" value="yes" ${S.audio === "yes" ? "checked" : ""}>Yes</label><label><input type="radio" name="aud" value="no" ${S.audio === "no" ? "checked" : ""}>No</label></div>
-    <p class="muted" style="margin-top:10px">Either answer is fine and changes nothing else about the study.</p>
+    <p>One question before you start. Near the end, some students spend 4 minutes in the corridor explaining what they worked on, out loud, as if to a classmate. If that's you, may we record it on your phone or laptop?</p>
+    <ul>
+      <li>Only the research team listens to it. Your instructor and TAs never hear it.</li>
+      <li>It's labelled with your study ID, not your name, and the audio is deleted once it's typed up.</li>
+      <li>It isn't graded. Pauses and mistakes are normal and expected.</li>
+    </ul>
+    <p class="q" style="margin-top:20px">Is it okay to record your explanation?</p>
+    <div class="choices"><label><input type="radio" name="aud" value="yes" ${S.audio === "yes" ? "checked" : ""}>Yes, that's okay</label><label><input type="radio" name="aud" value="no" ${S.audio === "no" ? "checked" : ""}>No, please don't record me</label></div>
+    <p class="muted" style="margin-top:10px">Either answer is fine. Everything else about the study is the same for you either way. The consent form asks this again, with your answer already filled in.</p>
     <div class="row"><button id="intro-go">Continue</button></div>
     ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`;
 }
