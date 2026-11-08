@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study page</title>
+<script src="lab9-config.js"></script>
+<style>
+  :root {
+    --ink:#18191b; --ink-2:#3d4046; --muted:#6c707a; --line:#e7e4df; --line-2:#d6d2cb;
+    --bg:#f6f5f2; --paper:#fff; --accent:#245c4c; --accent-soft:#e3eee9; --bad:#a1281b; --bad-soft:#f7e4e1; --rec:#d4402f;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif: "Charter", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16.5px/1.6 var(--sans); color:var(--ink); background:var(--bg); -webkit-font-smoothing:antialiased; }
+  header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:18px; height:60px; padding:0 32px; background:var(--bg); border-bottom:1px solid var(--line); }
+  header .title { font:600 18px/1 var(--serif); }
+  header .spacer { flex:1; }
+  header .clock { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; }
+  header .clock.low { color:var(--bad); }
+  header .pill { font-size:13px; color:var(--muted); background:var(--paper); border:1px solid var(--line-2); border-radius:999px; padding:3px 11px; }
+  .progress { height:4px; background:var(--line); }
+  .progress div { height:4px; background:var(--accent); transition:width .3s; }
+  main { max-width:860px; margin:36px auto 120px; padding:0 24px; }
+  main.wide { max-width:1320px; }
+  .cols { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1fr); gap:20px; align-items:start; }
+  .cols > div { min-width:0; }
+  .sticky { position:sticky; top:84px; }
+  .card { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:28px 32px; margin-bottom:20px; }
+  h1 { font:600 28px/1.2 var(--serif); margin:0 0 14px; }
+  h2 { font:600 12px/1 var(--sans); text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 16px; }
+  p { margin:0 0 12px; }
+  .muted { color:var(--muted); font-size:14.5px; }
+  .q { font-weight:600; margin:0 0 10px; }
+  .goal { margin:0 0 22px; padding:2px 0 2px 18px; border-left:2px solid var(--accent); color:var(--ink-2); font-size:17px; }
+  .goal::before { content:"Goal"; display:block; font:600 11.5px/1 var(--sans); letter-spacing:.09em; text-transform:uppercase; color:var(--accent); margin-bottom:7px; }
+  .banner { margin:0 0 22px; }
+  .banner .eyebrow { font:600 12px/1 var(--sans); letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:9px; }
+  .banner .lead { font:400 26px/1.25 var(--serif); }
+  .banner.stop .eyebrow { color:var(--bad); }
+  .step { display:grid; grid-template-columns:26px 1fr; gap:10px; padding:12px 0; border-top:1px solid var(--line); }
+  h1 + .step, h2 + .step { border-top:0; padding-top:2px; }
+  .num { font:600 13px/1.75 var(--mono); color:var(--muted); }
+  button, .btn { display:inline-flex; align-items:center; gap:8px; background:var(--ink); color:#fff; border:1px solid var(--ink); border-radius:9px; padding:11px 20px; font:600 15px/1.2 var(--sans); cursor:pointer; text-decoration:none; }
+  button:hover, .btn:hover { background:#000; }
+  button.secondary, .btn.secondary { background:var(--paper); color:var(--ink); border-color:var(--line-2); }
+  button.secondary:hover, .btn.secondary:hover { border-color:var(--ink); }
+  button:disabled { opacity:.45; cursor:default; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  label.f { display:block; font-weight:600; font-size:14.5px; margin:20px 0 8px; }
+  input[type=text], input[type=number] { font:500 17px var(--sans); padding:10px 13px; border:1px solid var(--line-2); border-radius:9px; width:320px; max-width:100%; background:var(--paper); color:var(--ink); }
+  input:focus, textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .choices { display:flex; gap:8px; flex-wrap:wrap; }
+  .choices.col { flex-direction:column; align-items:flex-start; }
+  .choices label { display:flex; align-items:center; gap:9px; font-size:15.5px; border:1px solid var(--line-2); border-radius:9px; padding:9px 15px; cursor:pointer; background:var(--paper); }
+  .choices label:has(input:checked) { border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink); }
+  .choices input { accent-color:var(--ink); margin:0; }
+  .choices code { font-size:14px; }
+  .error { color:var(--bad); font-weight:500; font-size:14.5px; margin-top:14px; }
+  pre { background:#f7f6f2; border:1px solid var(--line); border-radius:10px; padding:14px 16px; font:13.5px/1.55 var(--mono); overflow:auto; margin:10px 0 14px; }
+  code { font-family:var(--mono); font-size:.9em; background:#efeee9; padding:1px 5px; border-radius:5px; }
+  pre code { background:none; padding:0; font-size:inherit; }
+  table { border-collapse:collapse; width:100%; margin:10px 0 16px; font-size:14.5px; }
+  th { text-align:left; font-weight:600; color:var(--ink-2); background:#f5f4f0; }
+  th, td { border-bottom:1px solid var(--line); padding:7px 10px; vertical-align:top; }
+  .note h1 { font-size:24px; } .note h2, .task h2 { font:600 18px/1.3 var(--serif); text-transform:none; letter-spacing:0; color:var(--ink); margin:24px 0 8px; }
+  .note ul, .note ol, .task ul { padding-left:22px; } .note li, .task li { margin:3px 0; }
+  .item { padding:18px 0; border-top:1px solid var(--line); }
+  .item:first-of-type { border-top:0; padding-top:0; }
+  textarea.code { width:100%; min-height:440px; font:14px/1.55 var(--mono); padding:14px 16px; border:1px solid var(--line-2); border-radius:10px; background:#fbfaf7; color:var(--ink); tab-size:4; resize:vertical; white-space:pre; overflow:auto; }
+  textarea.code[readonly] { background:#f3f2ee; color:var(--ink-2); }
+  .results { margin-top:14px; font-size:14px; }
+  .results .r { display:grid; grid-template-columns:22px 1fr; gap:6px; padding:6px 0; border-top:1px solid var(--line); }
+  .results .ok { color:var(--accent); font-weight:700; } .results .no { color:var(--bad); font-weight:700; }
+  .results .err { background:var(--bad-soft); color:var(--bad); padding:10px 12px; border-radius:8px; font:13px/1.5 var(--mono); white-space:pre-wrap; }
+  .chat { display:flex; flex-direction:column; gap:18px; max-height:62vh; overflow:auto; padding-right:4px; }
+  .msg { font-size:15px; overflow-wrap:anywhere; }
+  .msg p { margin:0 0 10px; } .msg p:last-child { margin-bottom:0; }
+  .me { align-self:flex-end; max-width:85%; background:#ecebe6; padding:10px 15px; border-radius:16px 16px 4px 16px; white-space:pre-wrap; }
+  .ai ol, .ai ul { padding-left:22px; margin:6px 0 10px; }
+  .composer { display:flex; gap:10px; align-items:flex-end; margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
+  .composer textarea { flex:1; min-height:50px; max-height:200px; resize:vertical; font:15px/1.5 var(--sans); padding:11px 13px; border:1px solid var(--line-2); border-radius:12px; background:var(--paper); color:var(--ink); }
+  .thinking { color:var(--muted); font-size:14.5px; }
+  .prompt { font:400 19px/1.5 var(--serif); border-left:2px solid var(--accent); padding:4px 0 4px 20px; margin:18px 0 22px; }
+  .record { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:22px; padding:18px 20px; border:1px solid var(--line); border-radius:12px; background:#fbfaf8; }
+  .dot { width:14px; height:14px; border-radius:50%; background:#c9c6bf; }
+  .dot.on { background:var(--rec); box-shadow:0 0 0 5px rgba(212,64,47,.15); }
+  .big { font-size:32px; font-weight:600; line-height:1; font-variant-numeric:tabular-nums; }
+  .pilebox { display:inline-block; font:700 20px/1 var(--sans); padding:12px 18px; border:2px solid var(--ink); border-radius:10px; margin:6px 0 10px; }
+  .warn { background:var(--bad-soft); border:1px solid #ecc7c1; color:#5c1a12; border-radius:12px; padding:14px 18px; margin-bottom:20px; font-size:15px; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:20px; }
+  .saved { color:var(--accent); font-weight:600; font-size:13.5px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } .sticky { position:static; } }
+  @media (max-width:640px) { header { padding:0 16px; } main { padding:0 14px; } .card { padding:22px 20px; } }
+</style>
+</head>
+<body>
+<header>
+  <span class="title" id="title">Study page</span>
+  <span class="spacer"></span>
+  <span class="clock" id="clock"></span>
+  <span class="pill" id="who" hidden></span>
+</header>
+<div class="progress"><div id="bar" style="width:0"></div></div>
+<main id="app"></main>
+
+<script>
+const CFG = window.STUDY_CONFIG;
+const QS = new URLSearchParams(location.search);
+const MOCK = QS.has("mock");
+const FAST = MOCK && QS.has("fast");
+const quick = () => FAST || S.studyId === "0000";
+const STORE = "study:" + CFG.session + (MOCK ? ":mock" : "");
+const LEARN_MS = () => quick() ? 40000 : CFG.minutes.learn * 60000;
+const FOLLOW_MS = () => quick() ? 15000 : CFG.minutes.followUp * 60000;
+const ORDER = ["intro", "id", "consent", "warmup", "ready", "learn", "follow", "jol", "submit", "done"];
+const FN = "intersecting_chars";
+const STARTER = `from typing import List
+
+
+def intersecting_chars(my_str: str) -> List[str]:
+    """
+    Describe what the function does here, and add your doctests.
+    """
+    pass
+`;
+const CASES = [
+  ["aBcd_aaab_bCC", ["b"]],
+  ["_CCda_acz", []],
+  ["CAB_cab_cxaxb", ["a", "b", "c"]],
+  ["zyx_xz_axz", ["x", "z"]],
+  ["za3g34_0a_a", "AssertionError"]
+];
+const TASK = `**Write a function \`intersecting_chars(my_str)\`.**
+
+The input is one string. It contains two underscores (\`_\`) that split it into three parts. The function returns a list of the letters that appear in **all three** parts, in **lowercase**, sorted in **ascending** order. Upper and lower case count as the same letter.
+
+| Input | The three parts | Output |
+|---|---|---|
+| \`"aBcd_aaab_bCC"\` | \`"aBcd"\`, \`"aaab"\`, \`"bCC"\` | \`['b']\` |
+| \`"CAB_cab_cxaxb"\` | \`"CAB"\`, \`"cab"\`, \`"cxaxb"\` | \`['a', 'b', 'c']\` |
+| \`"zyx_xz_axz"\` | \`"zyx"\`, \`"xz"\`, \`"axz"\` | \`['x', 'z']\` |
+| \`"_CCda_acz"\` | \`""\`, \`"CCda"\`, \`"acz"\` | \`[]\` |
+
+**Requirements**
+
+- If the input doesn't contain exactly two underscores, raise an \`AssertionError\` (use \`assert\`).
+- A part may be empty: \`"_a_b"\` is a valid input, and its first part is \`""\`.
+- Only letters are allowed. If any other character appears (such as a digit or a space), raise an \`AssertionError\`. Example: \`"za3g34_0a_a"\`.
+- The answer is in lowercase.
+- Don't import any libraries to get the answer.
+- As in the rest of Lab 9, add a short description and doctests.`;
+
+const WARMUP = [
+  { id: "w1", q: `What is the value of <code>"a | b".split("|")</code>?`, opts: ["['a ', ' b']", "['a', 'b']", "['a | b']", "It raises an error"], key: 0 },
+  { id: "w2", q: `What is the value of <code>" Hi ".strip().lower()</code>?`, opts: ["'hi'", "' hi '", "'Hi'", "'HI'"], key: 0 },
+  { id: "w3", q: `What is the value of <code>set("banana")</code>?`, opts: ["{'b', 'a', 'n'} (in some order)", "{'banana'}", "['b', 'a', 'n']", "{'b', 'a', 'n', 'a', 'n', 'a'}"], key: 0 },
+  { id: "w4", q: `What is the value of <code>{1, 2, 3} & {2, 3, 4}</code>?`, opts: ["{2, 3}", "{1, 2, 3, 4}", "{1, 4}", "It raises an error"], key: 0 },
+  { id: "w5", q: `What is the value of <code>sorted({'c', 'a', 'b'})</code>?`, opts: ["['a', 'b', 'c']", "{'a', 'b', 'c'}", "'abc'", "It raises an error"], key: 0 }
+];
+const BACKGROUND = [
+  { id: "courses", q: "Approximately how many programming courses have you completed before this one?", opts: ["0", "1", "2", "3", "4 or more"] },
+  { id: "familiar", q: "How familiar are you with the topic of today's activity (Python sets and string methods)?", opts: ["Not at all", "Slightly", "Moderately", "Very", "Extremely"] },
+  { id: "ai_freq", q: "How often do you use generative AI tools (e.g., ChatGPT, Copilot) for coursework?", opts: ["Never", "A few times a term", "A few times a month", "Weekly", "Daily"] },
+  { id: "ai_use", q: "When you use AI for coursework, what do you mainly use it for? (choose all that apply)", opts: ["Getting explanations", "Generating code or answers", "Debugging", "Checking my own work", "Other", "I don't use AI"], multi: true },
+  { id: "seen_task", q: "Before today, had you already looked at Task 4 (intersecting_chars) in Lab 9?", opts: ["No", "Looked at it only", "Started it", "Finished it"] }
+];
+const ROT = { w1: [1, 3, 0, 2], w2: [2, 0, 3, 1], w3: [3, 1, 0, 2], w4: [1, 0, 2, 3], w5: [2, 3, 1, 0] };
+
+let S = load();
+let key = null, busy = false;
+let recorder = null, chunks = [], recording = null, recStartedAt = null;
+
+document.getElementById("title").textContent = CFG.title;
+document.title = CFG.title;
+
+function fresh() { return { phase: "intro", log: {}, code: STARTER, transcript: [], records: [] }; }
+function load() { try { return JSON.parse(localStorage.getItem(STORE)) || fresh(); } catch { return fresh(); } }
+function save() { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} }
+function setPhase(p) { S.phase = p; S.log[p] = S.log[p] || newLog(); save(); render(); }
+function newLog() { return { start: Date.now(), firstEdit: null, edits: 0, pastes: 0, pasteChars: 0, hidden: 0, hiddenMs: 0, blur: 0 }; }
+function L() { return S.log[S.phase] || (S.log[S.phase] = newLog()); }
+
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function inline(s) {
+  return s.replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+}
+function md(src) {
+  const lines = esc(src).split("\n"); const out = []; let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line)) { const buf = []; i++; while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]); i++; out.push("<pre><code>" + buf.join("\n") + "</code></pre>"); }
+    else if (/^#{1,4} /.test(line)) { const lv = Math.min(line.match(/^#+/)[0].length, 3); out.push(`<h${lv}>${inline(line.replace(/^#+ /, ""))}</h${lv}>`); i++; }
+    else if (/^\|/.test(line)) {
+      const rows = []; while (i < lines.length && /^\|/.test(lines[i])) rows.push(lines[i++]);
+      const cells = r => r.replace(/^\||\|$/g, "").split(/(?<!\\)\|/).map(c => inline(c.trim().replace(/\\\|/g, "|")));
+      const body = rows.filter((r, k) => k !== 1 || !/^\|[\s\-:|]+\|$/.test(r));
+      out.push("<table>" + body.map((r, k) => "<tr>" + cells(r).map(c => k === 0 ? `<th>${c}</th>` : `<td>${c}</td>`).join("") + "</tr>").join("") + "</table>");
+    }
+    else if (/^\s*[-*] /.test(line)) { const it = []; while (i < lines.length && /^\s*[-*] /.test(lines[i])) it.push(lines[i++].replace(/^\s*[-*] /, "")); out.push("<ul>" + it.map(t => `<li>${inline(t)}</li>`).join("") + "</ul>"); }
+    else if (/^\s*\d+\. /.test(line)) { const it = []; while (i < lines.length && /^\s*\d+\. /.test(lines[i])) it.push(lines[i++].replace(/^\s*\d+\. /, "")); out.push("<ol>" + it.map(t => `<li>${inline(t)}</li>`).join("") + "</ol>"); }
+    else if (line.trim() === "") i++;
+    else { const buf = []; while (i < lines.length && lines[i].trim() !== "" && !/^(```|#{1,4} |\||\s*[-*] |\s*\d+\. )/.test(lines[i])) buf.push(lines[i++]); out.push("<p>" + inline(buf.join(" ")) + "</p>"); }
+  }
+  return out.join("\n");
+}
+
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function unlockKey(code) {
+  if (MOCK) return "mock";
+  const e = CFG.encryptedKey;
+  if (!e) throw new Error("not set up");
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(code.trim().toLowerCase()), "PBKDF2", false, ["deriveKey"]);
+  const aes = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64(e.salt), iterations: e.iterations, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(e.iv) }, aes, b64(e.ct)));
+}
+async function askAssistant() {
+  if (MOCK) { await new Promise(r => setTimeout(r, 600)); return "**Mock reply.** Split the string on `_`, then use sets.\n\n```python\nparts = my_str.split('_')\n```"; }
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+    body: JSON.stringify({
+      model: CFG.model,
+      messages: [{ role: "system", content: CFG.systemPrompt }, ...S.transcript],
+      ...(CFG.reasoningEffort ? { reasoning_effort: CFG.reasoningEffort } : {}),
+      store: true,
+      metadata: { study_id: S.studyId, group: S.group, session: CFG.session }
+    })
+  });
+  if (!res.ok) { let d = ""; try { d = (await res.json()).error.message; } catch {} throw new Error(d || ("HTTP " + res.status)); }
+  return (await res.json()).choices[0].message.content;
+}
+
+const PY_WORKER = `
+importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js");
+let py = null;
+const HARNESS = \`
+import json, io, contextlib
+cases = json.loads(CASES)
+res = {}
+ns = {"__name__": "student"}
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        exec(compile(SRC, "your code", "exec"), ns)
+    f = ns.get("${FN}")
+    if not callable(f):
+        res = {"error": "No function named ${FN} was found."}
+    else:
+        out = []
+        for arg, want in cases:
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    got = f(arg)
+                ok = want != "AssertionError" and got == want
+                shown = repr(got)
+            except AssertionError:
+                ok = want == "AssertionError"
+                shown = "AssertionError"
+            except Exception as e:
+                ok = False
+                shown = type(e).__name__ + ": " + str(e)
+            out.append({"arg": arg, "want": want, "got": shown, "ok": ok})
+        res = {"results": out}
+except SyntaxError as e:
+    res = {"error": "SyntaxError on line " + str(e.lineno) + ": " + str(e.msg)}
+except Exception as e:
+    res = {"error": type(e).__name__ + ": " + str(e)}
+json.dumps(res)
+\`;
+onmessage = async e => {
+  try {
+    if (!py) py = await loadPyodide();
+    py.globals.set("SRC", e.data.code);
+    py.globals.set("CASES", JSON.stringify(e.data.cases));
+    postMessage(py.runPython(HARNESS));
+  } catch (err) { postMessage(JSON.stringify({ error: "The test runner failed: " + err.message })); }
+};`;
+let worker = null, workerReady = false;
+function getWorker() {
+  if (!worker) { worker = new Worker(URL.createObjectURL(new Blob([PY_WORKER], { type: "text/javascript" }))); workerReady = false; }
+  return worker;
+}
+function runTests(code) {
+  return new Promise(resolve => {
+    const w = getWorker();
+    const limit = workerReady ? 6000 : 60000;
+    const timer = setTimeout(() => { w.terminate(); worker = null; resolve({ error: workerReady ? "Your code took too long to finish. Is there a loop that never ends?" : "The test runner didn't load. Check the internet connection and try again." }); }, limit);
+    w.onmessage = e => { clearTimeout(timer); workerReady = true; resolve(JSON.parse(e.data)); };
+    w.postMessage({ code, cases: CASES });
+  });
+}
+
+function remaining(start, ms) { return Math.max(0, start + ms - Date.now()); }
+function fmt(ms) { const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+
+function tick() {
+  const clock = document.getElementById("clock");
+  clock.classList.remove("low");
+  if (S.phase === "learn" && S.learnStart) {
+    const left = remaining(S.learnStart, LEARN_MS());
+    clock.textContent = fmt(left); clock.classList.toggle("low", left < 60000);
+    if (left === 0) endLearn(true);
+  } else if (S.phase === "follow" && S.followStart) {
+    const left = remaining(S.followStart, FOLLOW_MS());
+    clock.textContent = fmt(left);
+    const r = document.getElementById("rec-time");
+    if (r && recStartedAt) r.textContent = fmt(Date.now() - recStartedAt);
+    if (left === 0) { stopRecording(); setPhase("jol"); }
+  } else clock.textContent = "";
+}
+setInterval(tick, 500);
+
+let hiddenAt = null;
+document.addEventListener("visibilitychange", () => {
+  if (!["learn", "follow", "warmup"].includes(S.phase)) return;
+  if (document.hidden) { hiddenAt = Date.now(); L().hidden++; }
+  else if (hiddenAt) { L().hiddenMs += Date.now() - hiddenAt; hiddenAt = null; }
+  save();
+});
+window.addEventListener("blur", () => { if (["learn", "follow", "warmup"].includes(S.phase)) { L().blur++; save(); } });
+window.addEventListener("beforeunload", e => { if (["learn", "follow"].includes(S.phase)) { e.preventDefault(); e.returnValue = ""; } });
+
+let noteHtml = null;
+async function loadNote() {
+  if (noteHtml !== null) return noteHtml;
+  try { noteHtml = md(await (await fetch(CFG.noteUrl)).text()); } catch { noteHtml = "<p class='error'>The study note didn't load. Raise your hand.</p>"; }
+  return noteHtml;
+}
+
+function bar() { document.getElementById("bar").style.width = (100 * ORDER.indexOf(S.phase) / (ORDER.length - 1)) + "%"; }
+function groupLine() {
+  return S.group === "A"
+    ? `<div class="banner"><div class="eyebrow">Group A</div><div class="lead">For this part, you work without AI.</div></div>`
+    : `<div class="banner"><div class="eyebrow">Group ${S.group}</div><div class="lead">For this part, you have the study assistant.</div></div>`;
+}
+function radios(name, opts, val, order) {
+  const idx = order || opts.map((_, i) => i);
+  return `<div class="choices col">${idx.map(i => `<label><input type="radio" name="${name}" value="${i}" ${String(val) === String(i) ? "checked" : ""}>${opts[i]}</label>`).join("")}</div>`;
+}
+function checks(name, opts, vals) {
+  return `<div class="choices col">${opts.map((o, i) => `<label><input type="checkbox" name="${name}" value="${i}" ${(vals || []).includes(i) ? "checked" : ""}>${esc(o)}</label>`).join("")}</div>`;
+}
+
+function prefill(tpl, map) {
+  let u = tpl;
+  for (const [k, v] of Object.entries(map)) u = u.replace(k, encodeURIComponent(v));
+  return u;
+}
+function consentUrl() { return CFG.forms.consent.prefill ? prefill(CFG.forms.consent.prefill, { zzSIDzz: S.studyId, zzAUDzz: S.audio === "yes" ? "Yes" : "No" }) : ""; }
+function packed() {
+  const learn = S.log.learn || {};
+  const out = {
+    sid: S.studyId, group: S.group, audio_pile: S.audio, s: CFG.session, at: new Date().toISOString(),
+    warmup: S.warmup, background: S.background,
+    learn: { started: learn.start ? new Date(S.learnStart).toISOString() : null, ended_by: S.learnEndedBy, secs: S.learnSecs, first_edit_s: learn.firstEdit, edits: learn.edits, pastes: learn.pastes, paste_chars: learn.pasteChars, left_page: learn.hidden, left_secs: Math.round((learn.hiddenMs || 0) / 1000), blur: learn.blur, runs: S.runs || [], final_tests: S.finalTests || null, messages: S.transcript.filter(m => m.role === "user").length },
+    follow: { mode: S.recMode || null, left_page: (S.log.follow || {}).hidden || 0, secs: S.followSecs || null },
+    warmup_log: { left_page: (S.log.warmup || {}).hidden || 0 },
+    jol: S.jol
+  };
+  return "S1 " + JSON.stringify(out);
+}
+function answersUrl() {
+  return CFG.forms.answers.prefill ? prefill(CFG.forms.answers.prefill, { zzSIDzz: S.studyId, zzCODEzz: S.finalCode || S.code, zzANSzz: packed() }) : "";
+}
+
+function renderIntro(err) {
+  return `<div class="card"><h1>Lab 9 study</h1>
+    <p>Thanks for considering the study. It takes about 45 minutes, and after that you do Lab 9 as usual. Taking part is optional.</p>
+    <p>On the consent form you'll be asked whether you agree to <strong>audio recording</strong>: some students explain the topic out loud for 4 minutes, outside the room, and that explanation is recorded only if you agree. Only the research team hears it, and it's deleted once it's transcribed.</p>
+    <p class="q" style="margin-top:20px">Will you agree to audio recording?</p>
+    <div class="choices"><label><input type="radio" name="aud" value="yes" ${S.audio === "yes" ? "checked" : ""}>Yes</label><label><input type="radio" name="aud" value="no" ${S.audio === "no" ? "checked" : ""}>No</label></div>
+    <p class="muted" style="margin-top:10px">Either answer is fine and changes nothing else about the study.</p>
+    <div class="row"><button id="intro-go">Continue</button></div>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`;
+}
+
+function renderId(err) {
+  return `<div class="card"><h1>Take a study card</h1>
+    <p>Go to the front and take the <strong>top card</strong> from this pile:</p>
+    <div class="pilebox">${S.audio === "yes" ? "Audio: YES" : "Audio: NO"}</div>
+    <p>Keep the card. You'll need the study ID on it again next week.</p>
+    <label class="f" for="sid">Study ID (the 4-digit number on your card)</label>
+    <input id="sid" type="text" inputmode="numeric" autocomplete="off" value="${esc(S.studyId || "")}">
+    <div class="row"><button id="id-go">Continue</button><button class="secondary" id="id-back">Change my audio answer</button></div>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`;
+}
+
+function renderConsent(err) {
+  const url = consentUrl();
+  return `<div class="card"><h1>Consent form</h1>
+    <div class="step"><span class="num">1</span><div>Open the consent form. Your study ID and audio answer are already filled in.<div style="margin-top:10px">${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open the consent form</a>` : `<span class="error">The consent form link isn't set up. Raise your hand.</span>`}</div></div></div>
+    <div class="step"><span class="num">2</span><div>Read it, fill in your name and student number, answer the questions, and press <strong>Submit</strong>.</div></div>
+    <div class="step"><span class="num">3</span><div>The last screen of the form shows a <strong>code word</strong>. Type it here.
+      <div style="margin-top:10px"><input id="ccode" type="text" autocomplete="off" spellcheck="false" placeholder="Code word"></div></div></div>
+    <p class="muted">If you decide not to take part, just close this page and do Lab 9 as usual.</p>
+    <div class="row"><button id="consent-go">Continue</button></div>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`;
+}
+
+function renderWarmup(err) {
+  const w = S.warmupDraft || {};
+  return `<div class="card"><h1>Warm-up</h1>
+    <p>About 5 minutes. It isn't graded, and wrong answers don't count against you. Work it out yourself: no AI, no notes, no running code.</p></div>
+    <div class="card"><h2>Python basics</h2>
+    ${WARMUP.map((it, n) => `<div class="item"><p class="q">${n + 1}. ${it.q}</p>${radios(it.id, it.opts.map(esc), w[it.id], ROT[it.id])}</div>`).join("")}</div>
+    <div class="card"><h2>About you</h2>
+    ${BACKGROUND.map((it, n) => `<div class="item"><p class="q">${n + 6}. ${esc(it.q)}</p>${it.multi ? checks(it.id, it.opts, w[it.id]) : radios(it.id, it.opts.map(esc), w[it.id])}</div>`).join("")}
+    <div class="row"><button id="warm-go">Continue</button></div>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`;
+}
+
+function renderReady(err) {
+  const what = S.group === "A"
+    ? "You'll work on one Lab 9 question on this page, without AI. A study note on strings and sets is on the page, and you can also use your own lecture notes."
+    : "You'll work on one Lab 9 question on this page, with the study assistant on the page.";
+  const codeBox = S.group === "A" ? "" : (key ? `<p class="saved">Study assistant unlocked.</p>` : `<label class="f" for="scode">Session code (on the screen at the front)</label><input id="scode" type="text" autocomplete="off" spellcheck="false">`);
+  return `${groupLine()}<div class="card"><h1>Ready when you are</h1>
+    <p>${what}</p>
+    <p>You'll have <strong>${CFG.minutes.learn} minutes</strong>. Write your code in the box on this page. You can press <strong>Run tests</strong> as often as you like.</p>
+    <p>${S.group === "A" ? "<strong>Please don't use any AI tools (ChatGPT, Copilot, etc.) or web search during this part.</strong>" : "<strong>Use only the assistant on this page, not other AI tools.</strong>"} Keep this page open and stay on it. The page keeps a record of when you leave it.</p>
+    ${codeBox}
+    <div class="row"><button id="start">Start the ${CFG.minutes.learn} minutes</button></div>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`;
+}
+
+function resultsHtml(r) {
+  if (!r) return "";
+  if (r.running) return `<p class="muted">Running… (the first run takes a few seconds to load Python)</p>`;
+  if (r.error) return `<div class="err">${esc(r.error)}</div>`;
+  const n = r.results.filter(x => x.ok).length;
+  return `<p><strong>${n} of ${r.results.length} tests passed.</strong></p>` + r.results.map(x =>
+    `<div class="r"><span class="${x.ok ? "ok" : "no"}">${x.ok ? "✓" : "✗"}</span><div><code>${FN}(${esc(JSON.stringify(x.arg))})</code><br><span class="muted">expected ${esc(x.want === "AssertionError" ? "AssertionError" : JSON.stringify(x.want).replace(/"/g, "'").replace(/,/g, ", "))} · got ${esc(x.got)}</span></div></div>`).join("");
+}
+let lastResult = null;
+
+function editorCard(readonly) {
+  return `<div class="card"><h2>Your code</h2>
+    <textarea class="code" id="code" spellcheck="false" ${readonly ? "readonly" : ""}>${esc(S.code)}</textarea>
+    ${readonly ? "" : `<div class="row" style="margin-top:12px"><button id="run">Run tests</button><span class="saved" id="saved"></span></div>
+    <div class="results" id="results">${resultsHtml(lastResult)}</div>`}</div>`;
+}
+function transcriptHtml() {
+  if (!S.transcript.length) return `<p class="muted">No messages yet.</p>`;
+  return S.transcript.map(m => m.role === "user" ? `<div class="msg me">${esc(m.content)}</div>` : `<div class="msg ai">${md(m.content)}</div>`).join("");
+}
+function chatCard() {
+  return `<div class="card"><h2>Study assistant</h2>
+    ${key ? "" : `<div class="warn">The page was reloaded. Enter the session code again to use the assistant: <input id="code2" type="text" autocomplete="off" style="width:180px;margin:6px 0 0"> <button id="unlock2" class="secondary">Unlock</button> <span class="error" id="unlock-err"></span></div>`}
+    <div class="chat" id="chat">${transcriptHtml()}</div>
+    <div class="composer"><textarea id="msg" placeholder="Ask the assistant… (Enter to send, Shift+Enter for a new line)" ${key ? "" : "disabled"}></textarea><button id="send" ${key ? "" : "disabled"}>Send</button></div></div>`;
+}
+
+function renderLearn() {
+  document.getElementById("app").classList.add("wide");
+  const side = S.group === "A" ? `<div class="card note" id="note">Loading the study note…</div>` : chatCard();
+  return `<div class="goal">${esc(CFG.goal)}</div>${groupLine()}
+    <div class="cols"><div><div class="card task">${md(TASK)}</div>${editorCard(false)}</div>
+    <div class="sticky">${side}</div></div>`;
+}
+
+function renderFollow() {
+  if (S.group === "C") {
+    const prompt = `<div class="prompt">${esc(CFG.teachBackPrompt)}</div>`;
+    const rules = `<p class="muted" style="margin-top:18px">Talk from memory: no code, notes or assistant. Small mistakes are fine. Correct yourself if you notice one. This isn't graded.</p>`;
+    if (S.audio !== "yes") {
+      return `<div class="card"><h1>Explain it out loud, outside the room</h1>
+        <p>Step out to the corridor for ${CFG.minutes.followUp} minutes and explain this out loud. Nothing is recorded.</p>${prompt}${rules}
+        <p>Come back when the ${CFG.minutes.followUp} minutes are up. The page moves on by itself.</p></div>`;
+    }
+    if (!S.recMode) {
+      return `<div class="card"><h1>Explain it out loud, outside the room</h1>
+        <p>You'll record yourself explaining what you just worked on, outside the room so others can't hear you. Earbuds with a mic help if you have them.</p>
+        <div class="row"><button id="mode-phone">Record on my phone</button><button id="mode-laptop" class="secondary">Record on this laptop</button></div>
+        <p class="muted" style="margin-top:12px">Choose "this laptop" only if it's your own laptop and you can take it outside.</p></div>`;
+    }
+    if (S.recMode === "phone") {
+      return `<div class="card"><h1>Record on your phone</h1>
+        <div class="step"><span class="num">1</span><div>Take your phone and your study card to the corridor.</div></div>
+        <div class="step"><span class="num">2</span><div>On your phone, open <strong>${esc(recordUrl())}</strong>, or scan the QR code at the front of the room.</div></div>
+        <div class="step"><span class="num">3</span><div>Follow the steps there. At the end you upload the recording with your York account, on your phone.</div></div>
+        <div class="step"><span class="num">4</span><div>Come back. This page moves on by itself after ${CFG.minutes.followUp} minutes.</div></div></div>`;
+    }
+    return `<div class="card"><h1>Explain it out loud</h1>
+      <p>Take this laptop outside the room, then press Start recording.</p>${prompt}
+      <div class="record"><div class="dot" id="dot"></div><div><div class="big" id="rec-time">0:00</div><div class="muted" id="rec-status">Not recording yet</div></div>
+        <button id="rec-start">Start recording</button><button id="rec-stop" class="secondary" disabled>Stop</button></div>${rules}</div>`;
+  }
+  document.getElementById("app").classList.add("wide");
+  const side = S.group === "A" ? `<div class="card note" id="note">Loading the study note…</div>` : `<div class="card"><h2>Your conversation</h2><div class="chat">${transcriptHtml()}</div></div>`;
+  return `<div class="card"><h1>Look back over your work</h1>
+    <p>Re-read your code${S.group === "A" ? " and the study note" : " and your conversation"}. Try to understand why it works, or why it doesn't yet.</p>
+    <p class="muted">Your code can't be changed now, and there's nothing to write. The page moves on by itself after ${CFG.minutes.followUp} minutes.</p></div>
+    <div class="cols"><div>${editorCard(true)}</div><div class="sticky">${side}</div></div>`;
+}
+function recordUrl() { return new URL(CFG.recordUrl, location.href).href.replace(/^https?:\/\//, ""); }
+
+function renderJol(err) {
+  const dl = (S.group === "C" && S.audio === "yes" && S.recMode === "laptop")
+    ? (recording
+        ? `<div class="card"><h2>Your recording</h2><div class="step"><span class="num">1</span><div><a class="btn" href="${recording.url}" download="${esc(recording.name)}">Download your recording</a></div></div>
+           <div class="step"><span class="num">2</span><div>Upload it with this form (York sign-in), then delete the file from your laptop. ${CFG.forms.upload ? `<a class="btn secondary" href="${esc(CFG.forms.upload)}" target="_blank" rel="noopener">Open the upload form</a>` : ""}</div></div></div>`
+        : `<div class="card"><p class="muted">No recording was saved on this laptop. That's okay.</p></div>`)
+    : "";
+  return `${dl}<div class="card"><h1>One question</h1>
+    <p class="q">If you were tested on this material next week, without access to AI, notes, or the original solution, what percentage of the available marks do you think you would receive?</p>
+    <input id="jol" type="number" min="0" max="100" step="1" style="width:140px" value="${S.jol ?? ""}"> %
+    <div class="row"><button id="jol-go">Continue</button></div>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`;
+}
+
+function renderSubmit(err) {
+  const url = answersUrl();
+  return `<div class="card"><h1>Last step: send your answers</h1>
+    <div class="step"><span class="num">1</span><div>Open the form. Your answers and code are already filled in. Don't change them.<div style="margin-top:10px">${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open the form</a>` : `<span class="error">The form link isn't set up. Raise your hand.</span>`}</div></div></div>
+    <div class="step"><span class="num">2</span><div>Press <strong>Submit</strong> in the form. If it asks whether to use a previous draft, choose <strong>New draft</strong>.</div></div>
+    <div class="step"><span class="num">3</span><div>Type the code word from the form's last screen here.<div style="margin-top:10px"><input id="acode" type="text" autocomplete="off" spellcheck="false" placeholder="Code word"></div></div></div>
+    <div class="row"><button id="submit-go">Finish</button></div>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}
+    <details style="margin-top:22px"><summary class="muted">The form didn't open, or the boxes are empty?</summary>
+      <p class="muted" style="margin-top:10px">Raise your hand. Or copy everything below and paste it into the form's Answers box, then submit.</p>
+      <textarea id="packed" class="code" style="min-height:120px" readonly>${esc(packed() + "\n\n" + (S.finalCode || S.code))}</textarea>
+      <button class="secondary" id="copy">Copy my answers</button></details></div>`;
+}
+
+function renderDone() {
+  return `<div class="card"><h1>That's it. Thank you!</h1>
+    <p>Now carry on with ${esc(CFG.lab)} as usual. Your code from the study is below. If you want, copy it into your own <code>lab7_task4.py</code> and keep working on it. Submit the lab the normal way (deadline: ${esc(CFG.labDeadline)}).</p>
+    <p>Keep your study card. You'll need the ID on it at the start of ${esc(CFG.nextWeek)}.</p></div>
+    <div class="card"><h2>Your code</h2><textarea class="code" readonly style="min-height:260px">${esc(S.finalCode || S.code)}</textarea>
+    <div class="row"><button class="secondary" id="copy-code">Copy code</button></div></div>`;
+}
+
+const VIEWS = { intro: renderIntro, id: renderId, consent: renderConsent, warmup: renderWarmup, ready: renderReady, learn: renderLearn, follow: renderFollow, jol: renderJol, submit: renderSubmit, done: renderDone };
+async function render(err) {
+  const app = document.getElementById("app");
+  app.classList.remove("wide");
+  const who = document.getElementById("who");
+  who.hidden = !S.group; who.textContent = S.group ? `ID ${S.studyId} · Group ${S.group}` : "";
+  app.innerHTML = (VIEWS[S.phase] || renderIntro)(err);
+  bar(); wire();
+  const note = document.getElementById("note");
+  if (note) note.innerHTML = await loadNote();
+  const chat = document.getElementById("chat");
+  if (chat) chat.scrollTop = chat.scrollHeight;
+  tick();
+}
+
+function endLearn(timedOut) {
+  if (S.phase !== "learn") return;
+  const box = document.getElementById("code");
+  if (box) S.code = box.value;
+  S.finalCode = S.code;
+  S.learnEndedBy = timedOut ? "timer" : "student";
+  S.learnSecs = Math.round((Date.now() - S.learnStart) / 1000);
+  S.followStart = (S.group === "C" && S.audio === "yes") ? null : Date.now();
+  setPhase("follow");
+  runTests(S.finalCode).then(r => { S.finalTests = r.error ? { error: r.error } : { passed: r.results.filter(x => x.ok).length, of: r.results.length }; save(); });
+}
+
+function wire() {
+  const $ = id => document.getElementById(id);
+  const pick = n => { const el = document.querySelector(`input[name="${n}"]:checked`); return el ? el.value : null; };
+
+  if ($("intro-go")) $("intro-go").onclick = () => {
+    const a = pick("aud");
+    if (!a) return render("Choose Yes or No.");
+    S.audio = a; setPhase("id");
+  };
+  if ($("id-back")) $("id-back").onclick = () => setPhase("intro");
+  if ($("id-go")) $("id-go").onclick = () => {
+    const sid = $("sid").value.replace(/\D/g, "");
+    const c = CFG.cards[sid];
+    if (!sid) return render("Type the study ID from your card.");
+    if (!c && sid !== "0000") return render(`${sid} isn't a study ID for this lab. Check the number on your card. If it's right, raise your hand.`);
+    const [group, pile] = c || [["A", "C"].includes(QS.get("g")) ? QS.get("g") : "B", S.audio];
+    if (pile !== S.audio) return render(`That card is from the "Audio: ${pile.toUpperCase()}" pile, but you answered ${S.audio === "yes" ? "Yes" : "No"} to audio recording. Put it back and take the top card from the "Audio: ${S.audio.toUpperCase()}" pile.`);
+    Object.assign(S, { studyId: sid, group }); setPhase("consent");
+  };
+  if ($("consent-go")) $("consent-go").onclick = () => {
+    const v = $("ccode").value.trim().toLowerCase();
+    if (!v) return render("Type the code word from the form's last screen.");
+    if (!MOCK && v !== String(CFG.forms.consent.code).toLowerCase()) return render("That's not the code word. Make sure you pressed Submit in the consent form, then copy the word it shows.");
+    S.consentAt = new Date().toISOString(); setPhase("warmup");
+  };
+  if (S.phase === "warmup") {
+    document.querySelectorAll("input").forEach(el => el.onchange = () => { S.warmupDraft = collectWarm(); save(); });
+  }
+  if ($("warm-go")) $("warm-go").onclick = () => {
+    const w = collectWarm();
+    const missing = [...WARMUP, ...BACKGROUND].filter(it => it.multi ? !(w[it.id] || []).length : w[it.id] == null);
+    if (missing.length) { S.warmupDraft = w; return render("Answer every question (" + missing.length + " left). For question 9, tick at least one box."); }
+    S.warmup = Object.fromEntries(WARMUP.map(it => [it.id, { choice: it.opts[w[it.id]], correct: Number(w[it.id]) === it.key }]));
+    S.warmup.score = WARMUP.filter(it => Number(w[it.id]) === it.key).length;
+    S.warmup.secs = Math.round((Date.now() - L().start) / 1000);
+    S.background = Object.fromEntries(BACKGROUND.map(it => [it.id, it.multi ? w[it.id].map(i => it.opts[i]) : it.opts[w[it.id]]]));
+    setPhase("ready");
+  };
+  if ($("start")) $("start").onclick = async () => {
+    if (S.group !== "A" && !key) {
+      try { key = await unlockKey($("scode").value); }
+      catch (e) { return render(e.message === "not set up" ? "The study assistant isn't set up yet. Raise your hand." : "That session code didn't work. Check the screen and try again."); }
+    }
+    S.learnStart = Date.now(); setPhase("learn");
+  };
+  if ($("unlock2")) $("unlock2").onclick = async () => {
+    try { key = await unlockKey($("code2").value); render(); } catch { $("unlock-err").textContent = "That code didn't work."; }
+  };
+
+  const box = $("code");
+  if (box && !box.readOnly) {
+    let savedTimer = null;
+    box.addEventListener("keydown", e => {
+      if (e.key === "Tab") { e.preventDefault(); const s = box.selectionStart, en = box.selectionEnd; box.setRangeText("    ", s, en, "end"); box.dispatchEvent(new Event("input")); }
+    });
+    box.addEventListener("input", () => {
+      const l = L(); if (l.firstEdit == null) l.firstEdit = Math.round((Date.now() - S.learnStart) / 1000); l.edits++;
+      S.code = box.value; clearTimeout(savedTimer);
+      savedTimer = setTimeout(() => { save(); const s = $("saved"); if (s) s.textContent = "Saved"; }, 600);
+    });
+    box.addEventListener("paste", e => { const t = (e.clipboardData || window.clipboardData).getData("text") || ""; const l = L(); l.pastes++; l.pasteChars += t.length; save(); });
+  }
+  if ($("run")) $("run").onclick = async () => {
+    S.code = $("code").value; save();
+    $("run").disabled = true; lastResult = { running: true }; $("results").innerHTML = resultsHtml(lastResult);
+    const r = await runTests(S.code);
+    lastResult = r;
+    (S.runs = S.runs || []).push({ t: Math.round((Date.now() - S.learnStart) / 1000), passed: r.error ? null : r.results.filter(x => x.ok).length, error: r.error ? r.error.slice(0, 80) : undefined });
+    save();
+    if (S.phase === "learn" && $("results")) { $("results").innerHTML = resultsHtml(r); $("run").disabled = false; }
+  };
+
+  if ($("send")) {
+    const mbox = $("msg");
+    const send = async () => {
+      const text = mbox.value.trim();
+      if (!text || busy || S.phase !== "learn") return;
+      busy = true; mbox.value = "";
+      S.transcript.push({ role: "user", content: text }); save();
+      const chat = $("chat");
+      chat.innerHTML = transcriptHtml() + `<div class="thinking">The assistant is thinking…</div>`; chat.scrollTop = chat.scrollHeight;
+      $("send").disabled = true;
+      try { S.transcript.push({ role: "assistant", content: await askAssistant() }); }
+      catch (e) { S.transcript.pop(); mbox.value = text; alert("The assistant didn't respond (" + e.message + "). Try again."); }
+      busy = false; save();
+      if (S.phase === "learn" && $("chat")) { $("chat").innerHTML = transcriptHtml(); $("chat").scrollTop = $("chat").scrollHeight; $("send").disabled = false; mbox.focus(); }
+    };
+    $("send").onclick = send;
+    mbox.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
+  }
+
+  const choose = mode => { S.recMode = mode; S.followStart = Date.now(); save(); render(); };
+  if ($("mode-phone")) $("mode-phone").onclick = () => choose("phone");
+  if ($("mode-laptop")) $("mode-laptop").onclick = () => choose("laptop");
+  if ($("rec-start")) $("rec-start").onclick = startRecording;
+  if ($("rec-stop")) $("rec-stop").onclick = stopRecording;
+
+  if ($("jol-go")) $("jol-go").onclick = () => {
+    const v = $("jol").value.trim();
+    const n = Number(v);
+    if (v === "" || !Number.isFinite(n) || n < 0 || n > 100) return render("Enter a number from 0 to 100.");
+    if (recording && !confirm("Did you upload your recording with the upload form?")) return;
+    S.jol = Math.round(n); S.followSecs = S.followStart ? Math.round((Date.now() - S.followStart) / 1000) : null;
+    keepRecord(); setPhase("submit");
+  };
+  if ($("submit-go")) $("submit-go").onclick = () => {
+    const v = $("acode").value.trim().toLowerCase();
+    if (!MOCK && v !== String(CFG.forms.answers.code).toLowerCase()) return render("That's not the code word. Make sure you pressed Submit in the form, then copy the word it shows.");
+    S.submittedAt = new Date().toISOString(); setPhase("done");
+  };
+  if ($("copy")) $("copy").onclick = () => copyText($("packed").value, $("copy"));
+  if ($("copy-code")) $("copy-code").onclick = () => copyText(S.finalCode || S.code, $("copy-code"));
+}
+
+function collectWarm() {
+  const w = {};
+  for (const it of [...WARMUP, ...BACKGROUND]) {
+    if (it.multi) w[it.id] = [...document.querySelectorAll(`input[name="${it.id}"]:checked`)].map(e => Number(e.value));
+    else { const el = document.querySelector(`input[name="${it.id}"]:checked`); w[it.id] = el ? Number(el.value) : null; }
+  }
+  return w;
+}
+async function copyText(t, btn) {
+  try { await navigator.clipboard.writeText(t); } catch { const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+  btn.textContent = "Copied";
+}
+function keepRecord() { S.records = [packed()]; save(); }
+
+function pickMime() {
+  for (const t of ["audio/mp4;codecs=mp4a.40.2", "audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"]) if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t;
+  return "";
+}
+async function startRecording() {
+  const status = document.getElementById("rec-status");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = pickMime();
+    recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    chunks = [];
+    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const type = recorder.mimeType || "audio/webm";
+      const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+      recording = { url: URL.createObjectURL(new Blob(chunks, { type })), name: `${S.studyId}-explanation.${ext}` };
+      recStartedAt = null;
+      const s = document.getElementById("rec-status"); if (s) s.textContent = "Saved. You'll upload it in the next step.";
+      const dot = document.getElementById("dot"); if (dot) dot.classList.remove("on");
+      const b = document.getElementById("rec-stop"); if (b) b.disabled = true;
+    };
+    recorder.start(1000); recStartedAt = Date.now();
+    status.textContent = "Recording…";
+    document.getElementById("dot").classList.add("on");
+    document.getElementById("rec-start").disabled = true;
+    document.getElementById("rec-stop").disabled = false;
+  } catch { status.textContent = "The microphone didn't start. Explain it out loud anyway, and tell the researcher afterwards."; }
+}
+function stopRecording() { if (recorder && recorder.state !== "inactive") recorder.stop(); }
+
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "b" && S.studyId) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([packed() + "\n\n" + (S.finalCode || S.code) + "\n\n" + JSON.stringify(S.transcript)], { type: "text/plain" }));
+    a.download = `lab9-backup-${S.studyId}.txt`; a.click();
+  }
+});
+
+if (QS.has("reset")) { localStorage.removeItem(STORE); S = fresh(); history.replaceState(null, "", location.pathname + (MOCK ? "?mock=1" + (FAST ? "&fast=1" : "") : "")); }
+if (S.phase === "learn" && remaining(S.learnStart, LEARN_MS()) === 0) endLearn(true);
+render();
+</script>
+</body>
+</html>
