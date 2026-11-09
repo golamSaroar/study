@@ -171,7 +171,7 @@ const ROT = { w1: [1, 3, 0, 2], w2: [2, 0, 3, 1], w3: [3, 1, 0, 2], w4: [1, 0, 2
 
 let S = load();
 let key = null, busy = false;
-let recorder = null, chunks = [], recording = null, recStartedAt = null;
+let recorder = null, recording = null, recStartedAt = null;
 
 document.getElementById("title").textContent = CFG.title;
 document.title = CFG.title;
@@ -692,36 +692,70 @@ async function copyText(t, btn) {
 }
 function keepRecord() { S.records = [packed()]; save(); }
 
-function pickMime() {
-  for (const t of ["audio/mp4;codecs=mp4a.40.2", "audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"]) if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t;
-  return "";
+function encodeWav(bufs, inRate, outRate) {
+  const len = bufs.reduce((n, b) => n + b.length, 0);
+  const ratio = inRate / outRate, outLen = Math.floor(len / ratio);
+  const pcm = new Float32Array(len);
+  let o = 0; for (const b of bufs) { pcm.set(b, o); o += b.length; }
+  const v = new DataView(new ArrayBuffer(44 + outLen * 2));
+  const str = (p, s) => { for (let i = 0; i < s.length; i++) v.setUint8(p + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); v.setUint32(4, 36 + outLen * 2, true); str(8, "WAVE"); str(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, outRate, true); v.setUint32(28, outRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, "data"); v.setUint32(40, outLen * 2, true);
+  for (let i = 0; i < outLen; i++) {
+    const a = Math.floor(i * ratio), b = Math.max(a + 1, Math.floor((i + 1) * ratio));
+    let s = 0; for (let j = a; j < b && j < len; j++) s += pcm[j];
+    s = Math.max(-1, Math.min(1, s / (b - a)));
+    v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([v], { type: "audio/wav" });
 }
+function makeRecorder(stream, onDone) {
+  const finish = (blob, ext) => { stream.getTracks().forEach(t => t.stop()); onDone(blob, ext); };
+  const mime = ["audio/mp4;codecs=mp4a.40.2", "audio/mp4"].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+  if (mime) {
+    const mr = new MediaRecorder(stream, { mimeType: mime }), parts = [];
+    mr.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
+    mr.onstop = () => finish(new Blob(parts, { type: mr.mimeType || mime }), "m4a");
+    mr.start(1000);
+    return { stop: () => { if (mr.state !== "inactive") mr.stop(); } };
+  }
+  // Forms rejects webm/ogg, so record raw audio and save it as WAV.
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  ctx.resume();
+  const src = ctx.createMediaStreamSource(stream), proc = ctx.createScriptProcessor(4096, 1, 1), bufs = [];
+  proc.onaudioprocess = e => bufs.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  src.connect(proc); proc.connect(ctx.destination);
+  let done = false;
+  return { stop: () => {
+    if (done) return; done = true;
+    proc.disconnect(); src.disconnect();
+    const rate = ctx.sampleRate; ctx.close();
+    finish(encodeWav(bufs, rate, 16000), "wav");
+  } };
+}
+
 async function startRecording() {
   const status = document.getElementById("rec-status");
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mime = pickMime();
-    recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-    chunks = [];
-    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-    recorder.onstop = () => {
-      stream.getTracks().forEach(t => t.stop());
-      const type = recorder.mimeType || "audio/webm";
-      const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
-      recording = { url: URL.createObjectURL(new Blob(chunks, { type })), name: `${S.studyId}-explanation.${ext}` };
-      recStartedAt = null;
-      const s = document.getElementById("rec-status"); if (s) s.textContent = "Saved. You'll upload it in the next step.";
-      const dot = document.getElementById("dot"); if (dot) dot.classList.remove("on");
-      const b = document.getElementById("rec-stop"); if (b) b.disabled = true;
-    };
-    recorder.start(1000); recStartedAt = Date.now();
-    status.textContent = "Recording…";
-    document.getElementById("dot").classList.add("on");
-    document.getElementById("rec-start").disabled = true;
-    document.getElementById("rec-stop").disabled = false;
-  } catch { status.textContent = "The microphone didn't start. Explain it out loud anyway, and tell the researcher afterwards."; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { status.textContent = "The microphone didn't start. Explain it out loud anyway, and tell the researcher afterwards."; return; }
+  recorder = makeRecorder(stream, (blob, ext) => {
+    recording = { url: URL.createObjectURL(blob), name: `${S.studyId}-explanation.${ext}` };
+    recStartedAt = null;
+    const s = document.getElementById("rec-status"); if (s) s.textContent = "Saved. You'll upload it in the next step.";
+    const dot = document.getElementById("dot"); if (dot) dot.classList.remove("on");
+    const b = document.getElementById("rec-stop"); if (b) b.disabled = true;
+    if (S.phase === "jol") render();
+  });
+  recStartedAt = Date.now();
+  status.textContent = "Recording…";
+  document.getElementById("dot").classList.add("on");
+  document.getElementById("rec-start").disabled = true;
+  document.getElementById("rec-stop").disabled = false;
 }
-function stopRecording() { if (recorder && recorder.state !== "inactive") recorder.stop(); }
+function stopRecording() { if (recorder) recorder.stop(); }
 
 document.addEventListener("keydown", e => {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "b" && S.studyId) {

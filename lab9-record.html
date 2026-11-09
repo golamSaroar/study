@@ -43,7 +43,7 @@
 <script>
 const CFG = window.STUDY_CONFIG;
 const LIMIT = CFG.minutes.followUp * 60000;
-let studyId = "", recorder = null, chunks = [], startedAt = null, file = null, timer = null;
+let studyId = "", recorder = null, startedAt = null, file = null, timer = null;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = ms => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
@@ -79,30 +79,59 @@ function screenRecord(err) {
   $("stop").onclick = stop;
 }
 
-function pickMime() {
-  for (const t of ["audio/mp4;codecs=mp4a.40.2", "audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"]) {
-    if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t;
+function encodeWav(bufs, inRate, outRate) {
+  const len = bufs.reduce((n, b) => n + b.length, 0);
+  const ratio = inRate / outRate, outLen = Math.floor(len / ratio);
+  const pcm = new Float32Array(len);
+  let o = 0; for (const b of bufs) { pcm.set(b, o); o += b.length; }
+  const v = new DataView(new ArrayBuffer(44 + outLen * 2));
+  const str = (p, s) => { for (let i = 0; i < s.length; i++) v.setUint8(p + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); v.setUint32(4, 36 + outLen * 2, true); str(8, "WAVE"); str(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, outRate, true); v.setUint32(28, outRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, "data"); v.setUint32(40, outLen * 2, true);
+  for (let i = 0; i < outLen; i++) {
+    const a = Math.floor(i * ratio), b = Math.max(a + 1, Math.floor((i + 1) * ratio));
+    let s = 0; for (let j = a; j < b && j < len; j++) s += pcm[j];
+    s = Math.max(-1, Math.min(1, s / (b - a)));
+    v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
   }
-  return "";
+  return new Blob([v], { type: "audio/wav" });
+}
+function makeRecorder(stream, onDone) {
+  const finish = (blob, ext) => { stream.getTracks().forEach(t => t.stop()); onDone(blob, ext); };
+  const mime = ["audio/mp4;codecs=mp4a.40.2", "audio/mp4"].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+  if (mime) {
+    const mr = new MediaRecorder(stream, { mimeType: mime }), parts = [];
+    mr.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
+    mr.onstop = () => finish(new Blob(parts, { type: mr.mimeType || mime }), "m4a");
+    mr.start(1000);
+    return { stop: () => { if (mr.state !== "inactive") mr.stop(); } };
+  }
+  // Forms rejects webm/ogg, so record raw audio and save it as WAV.
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  ctx.resume();
+  const src = ctx.createMediaStreamSource(stream), proc = ctx.createScriptProcessor(4096, 1, 1), bufs = [];
+  proc.onaudioprocess = e => bufs.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  src.connect(proc); proc.connect(ctx.destination);
+  let done = false;
+  return { stop: () => {
+    if (done) return; done = true;
+    proc.disconnect(); src.disconnect();
+    const rate = ctx.sampleRate; ctx.close();
+    finish(encodeWav(bufs, rate, 16000), "wav");
+  } };
 }
 
 async function start() {
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
   catch { return screenRecord("The microphone didn't start. Allow microphone access for this page and try again — or explain it out loud anyway and tell the researcher."); }
-  const mime = pickMime();
-  recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-  chunks = [];
-  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-  recorder.onstop = () => {
-    stream.getTracks().forEach(t => t.stop());
+  recorder = makeRecorder(stream, (blob, ext) => {
     clearInterval(timer);
-    const type = recorder.mimeType || "audio/webm";
-    const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
-    file = { url: URL.createObjectURL(new Blob(chunks, { type })), name: `${studyId}-explanation.${ext}` };
+    file = { url: URL.createObjectURL(blob), name: `${studyId}-explanation.${ext}` };
     screenSave();
-  };
-  recorder.start(1000);
+  });
   startedAt = Date.now();
   $("start").disabled = true;
   $("stop").disabled = false;
@@ -115,7 +144,7 @@ async function start() {
 }
 
 function stop() {
-  if (recorder && recorder.state !== "inactive") recorder.stop();
+  if (recorder) recorder.stop();
 }
 
 function screenSave() {
