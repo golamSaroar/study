@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explain it out loud</title>
+<script src="lab7-config.js"></script>
+<style>
+  :root {
+    --ink:#18191b; --ink-2:#3d4046; --muted:#6c707a; --line:#e7e4df; --line-2:#d6d2cb;
+    --bg:#f6f5f2; --paper:#fff; --accent:#245c4c; --accent-soft:#e3eee9; --bad:#a1281b; --rec:#d4402f;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif: "Charter", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:17px/1.55 var(--sans); color:var(--ink); background:var(--bg); -webkit-font-smoothing:antialiased; }
+  header { display:flex; justify-content:space-between; align-items:center; height:56px; padding:0 18px; background:var(--bg); border-bottom:1px solid var(--line); }
+  header span:first-child { font:600 17px/1 var(--serif); }
+  #who { font-size:13px; color:var(--muted); background:var(--paper); border:1px solid var(--line-2); border-radius:999px; padding:3px 10px; }
+  #who:empty { display:none; }
+  main { padding:20px 16px 48px; max-width:560px; margin:0 auto; }
+  .card { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:22px 20px; }
+  h1 { font:600 25px/1.2 var(--serif); letter-spacing:-.01em; margin:0 0 12px; }
+  .muted { color:var(--muted); font-size:15px; }
+  .prompt { font:400 18.5px/1.5 var(--serif); border-left:2px solid var(--accent); padding:2px 0 2px 16px; margin:4px 0 16px; }
+  label { display:block; margin:16px 0 8px; font-size:15px; }
+  input { font:500 22px var(--sans); padding:12px 14px; border:1px solid var(--line-2); border-radius:10px; width:100%; background:var(--paper); color:var(--ink); }
+  input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  button, .btn { display:block; width:100%; text-align:center; background:var(--ink); color:#fff; border:1px solid var(--ink); border-radius:12px; padding:15px; font:600 17px/1.2 var(--sans); margin-top:12px; text-decoration:none; }
+  button.stop { background:var(--rec); border-color:var(--rec); }
+  button:disabled { opacity:.35; }
+  .big { font-size:56px; font-weight:600; line-height:1; text-align:center; font-variant-numeric:tabular-nums; letter-spacing:-.02em; margin:22px 0 6px; }
+  .error { color:var(--bad); font-size:15px; margin-top:12px; }
+  ol { list-style:none; counter-reset:s; padding:0; margin:0; }
+  ol li { counter-increment:s; position:relative; padding:14px 0 14px 30px; border-top:1px solid var(--line); }
+  ol li:first-child { border-top:0; padding-top:4px; }
+  ol li::before { content:counter(s); position:absolute; left:0; font:600 13px/1.9 ui-monospace, Menlo, monospace; color:var(--muted); }
+</style>
+</head>
+<body>
+<header><span>Explain it out loud</span><span id="who"></span></header>
+<main id="app"></main>
+<script>
+const CFG = window.STUDY_CONFIG;
+const LIMIT = CFG.minutes.followUp * 60000;
+let studyId = "", recorder = null, startedAt = null, file = null, timer = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = ms => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+function show(html) { $("app").innerHTML = html; }
+
+function screenId(err) {
+  show(`<div class="card"><h1>Before you start</h1>
+    <p class="muted">Use this page only if you're in Group C and you agreed to audio recording on the consent form. Do this outside the room, where others can't hear you.</p>
+    <label for="sid"><strong>Study ID (on your card)</strong></label>
+    <input id="sid" type="text" inputmode="numeric" autocomplete="off" value="${esc(studyId)}">
+    <button id="next">Continue</button>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`);
+  $("next").onclick = () => {
+    studyId = $("sid").value.replace(/\D/g, "");
+    if (!studyId) return screenId("Enter the study ID from your card.");
+    if (!CFG.cards[studyId] && studyId !== "0000") return screenId(studyId + " isn't a study ID for this lab. Check your card.");
+    $("who").textContent = "ID " + studyId;
+    screenRecord();
+  };
+}
+
+function screenRecord(err) {
+  show(`<div class="card">
+    <div class="prompt">${esc(CFG.teachBackPrompt)}</div>
+    <p class="muted">Talk from memory, for up to ${CFG.minutes.followUp} minutes. Small mistakes are fine — correct yourself if you notice one. This isn't graded.</p>
+    <div class="big" id="time">0:00</div>
+    <p class="muted" id="status" style="text-align:center">Press Start when you're ready.</p>
+    <button id="start">Start recording</button>
+    <button id="stop" class="stop" disabled>Stop</button>
+    ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`);
+  $("start").onclick = start;
+  $("stop").onclick = stop;
+}
+
+function encodeWav(bufs, inRate, outRate) {
+  const len = bufs.reduce((n, b) => n + b.length, 0);
+  const ratio = inRate / outRate, outLen = Math.floor(len / ratio);
+  const pcm = new Float32Array(len);
+  let o = 0; for (const b of bufs) { pcm.set(b, o); o += b.length; }
+  const v = new DataView(new ArrayBuffer(44 + outLen * 2));
+  const str = (p, s) => { for (let i = 0; i < s.length; i++) v.setUint8(p + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); v.setUint32(4, 36 + outLen * 2, true); str(8, "WAVE"); str(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, outRate, true); v.setUint32(28, outRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, "data"); v.setUint32(40, outLen * 2, true);
+  for (let i = 0; i < outLen; i++) {
+    const a = Math.floor(i * ratio), b = Math.max(a + 1, Math.floor((i + 1) * ratio));
+    let s = 0; for (let j = a; j < b && j < len; j++) s += pcm[j];
+    s = Math.max(-1, Math.min(1, s / (b - a)));
+    v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([v], { type: "audio/wav" });
+}
+function makeRecorder(stream, onDone) {
+  const finish = (blob, ext) => { stream.getTracks().forEach(t => t.stop()); onDone(blob, ext); };
+  const mime = ["audio/mp4;codecs=mp4a.40.2", "audio/mp4"].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+  if (mime) {
+    const mr = new MediaRecorder(stream, { mimeType: mime }), parts = [];
+    mr.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
+    mr.onstop = () => finish(new Blob(parts, { type: mr.mimeType || mime }), "m4a");
+    mr.start(1000);
+    return { stop: () => { if (mr.state !== "inactive") mr.stop(); } };
+  }
+  // Forms rejects webm/ogg, so record raw audio and save it as WAV.
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  ctx.resume();
+  const src = ctx.createMediaStreamSource(stream), proc = ctx.createScriptProcessor(4096, 1, 1), bufs = [];
+  proc.onaudioprocess = e => bufs.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  src.connect(proc); proc.connect(ctx.destination);
+  let done = false;
+  return { stop: () => {
+    if (done) return; done = true;
+    proc.disconnect(); src.disconnect();
+    const rate = ctx.sampleRate; ctx.close();
+    finish(encodeWav(bufs, rate, 16000), "wav");
+  } };
+}
+
+async function start() {
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { return screenRecord("The microphone didn't start. Allow microphone access for this page and try again — or explain it out loud anyway and tell the researcher."); }
+  recorder = makeRecorder(stream, (blob, ext) => {
+    clearInterval(timer);
+    file = { url: URL.createObjectURL(blob), name: `${studyId}-explanation.${ext}` };
+    screenSave();
+  });
+  startedAt = Date.now();
+  $("start").disabled = true;
+  $("stop").disabled = false;
+  $("status").textContent = "Recording…";
+  timer = setInterval(() => {
+    const elapsed = Date.now() - startedAt;
+    $("time").textContent = fmt(Math.min(elapsed, LIMIT));
+    if (elapsed >= LIMIT) stop();
+  }, 250);
+}
+
+function stop() {
+  if (recorder) recorder.stop();
+}
+
+function screenSave() {
+  const form = CFG.forms.upload;
+  show(`<div class="card"><h1>Done — now send it</h1>
+    <ol>
+      <li>Save the recording to your phone.
+        <a class="btn" href="${file.url}" download="${esc(file.name)}">Save recording</a></li>
+      <li>Open the upload form, sign in with your York account, upload <strong>${esc(file.name)}</strong>, and submit.
+        ${form ? `<a class="btn" href="${esc(form)}" target="_blank" rel="noopener">Open the upload form</a>` : `<div class="error">(form link not set yet)</div>`}</li>
+      <li>Delete the recording from your phone's downloads.</li>
+      <li>Go back to the lab. The study page on the computer moves on by itself.</li>
+    </ol></div>`);
+}
+
+screenId();
+</script>
+</body>
+</html>
