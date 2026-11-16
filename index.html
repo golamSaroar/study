@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Study page</title>
-<script src="lab9-config.js"></script>
+<script src="lab7-config.js"></script>
 <style>
   :root {
     --ink:#18191b; --ink-2:#3d4046; --muted:#6c707a; --line:#e7e4df; --line-2:#d6d2cb;
@@ -92,6 +92,10 @@
   .warn { background:var(--bad-soft); border:1px solid #ecc7c1; color:#5c1a12; border-radius:12px; padding:14px 18px; margin-bottom:20px; font-size:15px; }
   .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:20px; }
   .saved { color:var(--accent); font-weight:600; font-size:13.5px; }
+  .pv { background:#fff8e1; border-bottom:1px solid #ecd9a0; padding:10px 32px; font-size:14px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .pv strong { font-weight:600; }
+  .pv a, .pv button.link { color:var(--ink); font:600 14px var(--sans); background:none; border:0; padding:0; text-decoration:underline; cursor:pointer; }
+  .pv .on { text-decoration:none; background:var(--ink); color:#fff; border-radius:6px; padding:2px 8px; }
   @media (max-width:980px) { .cols { grid-template-columns:1fr; } .sticky { position:static; } }
   @media (max-width:640px) { header { padding:0 16px; } main { padding:0 14px; } .card { padding:22px 20px; } }
 </style>
@@ -104,68 +108,100 @@
   <span class="pill" id="who" hidden></span>
 </header>
 <div class="progress"><div id="bar" style="width:0"></div></div>
+<div class="pv" id="pv" hidden></div>
 <main id="app"></main>
 
 <script>
 const CFG = window.STUDY_CONFIG;
 const QS = new URLSearchParams(location.search);
-const MOCK = QS.has("mock");
+const PREVIEW = QS.has("preview");
+const MOCK = QS.has("mock") || PREVIEW;
 const FAST = MOCK && QS.has("fast");
 const quick = () => FAST || S.studyId === "0000";
-const STORE = "study:" + CFG.session + (MOCK ? ":mock" : "");
+const STORE = "study:" + CFG.session + (PREVIEW ? ":preview" : MOCK ? ":mock" : "");
+const PG = ["A", "B", "C"].includes(QS.get("g")) ? QS.get("g") : "B";
 const LEARN_MS = () => quick() ? 40000 : CFG.minutes.learn * 60000;
 const FOLLOW_MS = () => quick() ? 15000 : CFG.minutes.followUp * 60000;
 const ORDER = ["intro", "id", "consent", "warmup", "ready", "learn", "follow", "jol", "submit", "done"];
-const FN = "intersecting_chars";
-const STARTER = `from typing import List
-
-
-def intersecting_chars(my_str: str) -> List[str]:
-    """
-    Describe what the function does here, and add your doctests.
-    """
-    pass
+const FN = "getMaxDistanceToLeaf";
+const STARTER = `function getMaxDistanceToLeaf(person, contactGraph, visited = new Set()) {
+  // your code here
+}
 `;
+const GRAPHS = {
+  contactGraph: {
+    "Ava": ["Ben", "Cara"],
+    "Ben": ["Dev"],
+    "Cara": ["Dev", "Eli"],
+    "Dev": ["Fay"],
+    "Eli": [],
+    "Gus": ["Hana"],
+    "Hana": ["Ivan"],
+    "Ivan": ["Gus"],
+    "Jo": ["Gus", "Kai"],
+    "Kai": ["Lee"]
+  }
+};
 const CASES = [
-  ["aBcd_aaab_bCC", ["b"]],
-  ["_CCda_acz", []],
-  ["CAB_cab_cxaxb", ["a", "b", "c"]],
-  ["zyx_xz_axz", ["x", "z"]],
-  ["za3g34_0a_a", "AssertionError"]
+  { person: "Fay", graph: "contactGraph", want: 0 },
+  { person: "Eli", graph: "contactGraph", want: 0 },
+  { person: "Dev", graph: "contactGraph", want: 1 },
+  { person: "Ben", graph: "contactGraph", want: 2 },
+  { person: "Ava", graph: "contactGraph", want: 3 },
+  { person: "Gus", graph: "contactGraph", want: "-Infinity" }
 ];
-const TASK = `**Write a function \`intersecting_chars(my_str)\`.**
+const TASK = `**Write a recursive function \`getMaxDistanceToLeaf(person, contactGraph, visited)\`.**
 
-The input is one string. It contains two underscores (\`_\`) that split it into three parts. The function returns a list of the letters that appear in **all three** parts, in **lowercase**, sorted in **ascending** order. Upper and lower case count as the same letter.
+This is the last function in Lab 7's programming task. You don't need the other functions: a contact graph is given below.
 
-| Input | The three parts | Output |
+A **contact graph** is an object. Each key is a sick person's name, and its value is an array of the people they had contact with. A **leaf** is someone with no contacts listed: either they aren't a key in the graph, or their array is empty.
+
+The function returns the number of steps in the **longest** chain of contacts that starts at \`person\` and ends at a leaf.
+
+\`\`\`
+const contactGraph = {
+  "Ava": ["Ben", "Cara"],
+  "Ben": ["Dev"],
+  "Cara": ["Dev", "Eli"],
+  "Dev": ["Fay"],
+  "Eli": [],
+  "Gus": ["Hana"],
+  "Hana": ["Ivan"],
+  "Ivan": ["Gus"],
+  "Jo": ["Gus", "Kai"],
+  "Kai": ["Lee"]
+};
+\`\`\`
+
+| Call | Returns | Why |
 |---|---|---|
-| \`"aBcd_aaab_bCC"\` | \`"aBcd"\`, \`"aaab"\`, \`"bCC"\` | \`['b']\` |
-| \`"CAB_cab_cxaxb"\` | \`"CAB"\`, \`"cab"\`, \`"cxaxb"\` | \`['a', 'b', 'c']\` |
-| \`"zyx_xz_axz"\` | \`"zyx"\`, \`"xz"\`, \`"axz"\` | \`['x', 'z']\` |
-| \`"_CCda_acz"\` | \`""\`, \`"CCda"\`, \`"acz"\` | \`[]\` |
+| \`getMaxDistanceToLeaf("Fay", contactGraph)\` | \`0\` | Fay isn't a key, so Fay is a leaf |
+| \`getMaxDistanceToLeaf("Eli", contactGraph)\` | \`0\` | Eli's array is empty, so Eli is a leaf |
+| \`getMaxDistanceToLeaf("Ben", contactGraph)\` | \`2\` | Ben → Dev → Fay |
+| \`getMaxDistanceToLeaf("Ava", contactGraph)\` | \`3\` | Ava → Cara → Dev → Fay (Ava → Cara → Eli is shorter) |
+| \`getMaxDistanceToLeaf("Gus", contactGraph)\` | \`-Infinity\` | Gus → Hana → Ivan → Gus … goes round in a cycle |
 
 **Requirements**
 
-- If the input doesn't contain exactly two underscores, raise an \`AssertionError\` (use \`assert\`).
-- A part may be empty: \`"_a_b"\` is a valid input, and its first part is \`""\`.
-- Only letters are allowed. If any other character appears (such as a digit or a space), raise an \`AssertionError\`. Example: \`"za3g34_0a_a"\`.
-- The answer is in lowercase.
-- Don't import any libraries to get the answer.
-- As in the rest of Lab 9, add a short description and doctests.`;
+- The function must be **recursive**: call it on each of the person's contacts, take the largest result, and add 1.
+- \`visited\` is a \`Set\` of the people on the **current path**. It starts empty (\`visited = new Set()\`), so callers can leave it out.
+- If \`person\` is already in \`visited\`, the path has gone round a cycle: return \`-Infinity\`.
+- Only the current path counts. Once you have finished with a person's contacts, take them out of \`visited\` again, so that a different path can pass through the same person.
+- Don't change \`contactGraph\`.`;
 
 const WARMUP = [
-  { id: "w1", q: `What is the value of <code>"a | b".split("|")</code>?`, opts: ["['a ', ' b']", "['a', 'b']", "['a | b']", "It raises an error"], key: 0 },
-  { id: "w2", q: `What is the value of <code>" Hi ".strip().lower()</code>?`, opts: ["'hi'", "' hi '", "'Hi'", "'HI'"], key: 0 },
-  { id: "w3", q: `What is the value of <code>set("banana")</code>?`, opts: ["{'b', 'a', 'n'} (in some order)", "{'banana'}", "['b', 'a', 'n']", "{'b', 'a', 'n', 'a', 'n', 'a'}"], key: 0 },
-  { id: "w4", q: `What is the value of <code>{1, 2, 3} & {2, 3, 4}</code>?`, opts: ["{2, 3}", "{1, 2, 3, 4}", "{1, 4}", "It raises an error"], key: 0 },
-  { id: "w5", q: `What is the value of <code>sorted({'c', 'a', 'b'})</code>?`, opts: ["['a', 'b', 'c']", "{'a', 'b', 'c'}", "'abc'", "It raises an error"], key: 0 }
+  { id: "w1", q: `<pre style="margin:0 0 6px">function f(n) {\n  if (n <= 0) return 0;\n  return n + f(n - 1);\n}</pre>What does <code>f(3)</code> return?`, opts: ["6", "3", "0", "It never stops"], key: 0, html: true },
+  { id: "w2", q: `In a recursive function, what is the base case for?`, opts: ["It stops the recursion", "It makes the function faster", "It handles errors", "It stores the results"], key: 0 },
+  { id: "w3", q: `<code>const s = new Set(); s.add("a"); s.add("a");</code> What is <code>s.size</code>?`, opts: ["1", "2", "0", "It throws an error"], key: 0, html: true },
+  { id: "w4", q: `<code>const g = { a: ["b"] };</code> What is <code>g["z"]</code>?`, opts: ["undefined", "[]", "null", "It throws an error"], key: 0, html: true },
+  { id: "w5", q: `What is <code>Math.max()</code> with no arguments?`, opts: ["-Infinity", "0", "undefined", "NaN"], key: 0, html: true }
 ];
 const BACKGROUND = [
   { id: "courses", q: "Approximately how many programming courses have you completed before this one?", opts: ["0", "1", "2", "3", "4 or more"] },
-  { id: "familiar", q: "How familiar are you with the topic of today's activity (Python sets and string methods)?", opts: ["Not at all", "Slightly", "Moderately", "Very", "Extremely"] },
+  { id: "familiar", q: "How familiar are you with the topic of today's activity (recursion)?", opts: ["Not at all", "Slightly", "Moderately", "Very", "Extremely"] },
   { id: "ai_freq", q: "How often do you use generative AI tools (e.g., ChatGPT, Copilot) for coursework?", opts: ["Never", "A few times a term", "A few times a month", "Weekly", "Daily"] },
   { id: "ai_use", q: "When you use AI for coursework, what do you mainly use it for? (choose all that apply)", opts: ["Getting explanations", "Generating code or answers", "Debugging", "Checking my own work", "Other", "I don't use AI"], multi: true },
-  { id: "seen_task", q: "Before today, had you already looked at Task 4 (intersecting_chars) in Lab 9?", opts: ["No", "Looked at it only", "Started it", "Finished it"] }
+  { id: "seen_task", q: "Before today, had you already worked on getMaxDistanceToLeaf in Lab 7?", opts: ["No", "Looked at it only", "Started it", "Finished it"] }
 ];
 const ROT = { w1: [1, 3, 0, 2], w2: [2, 0, 3, 1], w3: [3, 1, 0, 2], w4: [1, 0, 2, 3], w5: [2, 3, 1, 0] };
 
@@ -217,7 +253,7 @@ async function unlockKey(code) {
   return new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(e.iv) }, aes, b64(e.ct)));
 }
 async function askAssistant() {
-  if (MOCK) { await new Promise(r => setTimeout(r, 600)); return "**Mock reply.** Split the string on `_`, then use sets.\n\n```python\nparts = my_str.split('_')\n```"; }
+  if (MOCK) { await new Promise(r => setTimeout(r, 600)); return PREVIEW ? "**Preview reply.** In the real session this is a live AI assistant, and students can ask it anything.\n\nStart with the base case: what should the function return for someone who has no contacts listed?" : "**Mock reply.** Start with the base case."; }
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -233,62 +269,42 @@ async function askAssistant() {
   return (await res.json()).choices[0].message.content;
 }
 
-const PY_WORKER = `
-importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js");
-let py = null;
-const HARNESS = \`
-import json, io, contextlib
-cases = json.loads(CASES)
-res = {}
-ns = {"__name__": "student"}
-try:
-    with contextlib.redirect_stdout(io.StringIO()):
-        exec(compile(SRC, "your code", "exec"), ns)
-    f = ns.get("${FN}")
-    if not callable(f):
-        res = {"error": "No function named ${FN} was found."}
-    else:
-        out = []
-        for arg, want in cases:
-            try:
-                with contextlib.redirect_stdout(io.StringIO()):
-                    got = f(arg)
-                ok = want != "AssertionError" and got == want
-                shown = repr(got)
-            except AssertionError:
-                ok = want == "AssertionError"
-                shown = "AssertionError"
-            except Exception as e:
-                ok = False
-                shown = type(e).__name__ + ": " + str(e)
-            out.append({"arg": arg, "want": want, "got": shown, "ok": ok})
-        res = {"results": out}
-except SyntaxError as e:
-    res = {"error": "SyntaxError on line " + str(e.lineno) + ": " + str(e.msg)}
-except Exception as e:
-    res = {"error": type(e).__name__ + ": " + str(e)}
-json.dumps(res)
-\`;
-onmessage = async e => {
-  try {
-    if (!py) py = await loadPyodide();
-    py.globals.set("SRC", e.data.code);
-    py.globals.set("CASES", JSON.stringify(e.data.cases));
-    postMessage(py.runPython(HARNESS));
-  } catch (err) { postMessage(JSON.stringify({ error: "The test runner failed: " + err.message })); }
+const JS_WORKER = `
+const show = v => v === -Infinity ? "-Infinity" : v === Infinity ? "Infinity" : v === undefined ? "undefined" : JSON.stringify(v);
+onmessage = e => {
+  const { code, cases, graphs } = e.data;
+  let fn;
+  const src = code.replace(/^\\s*export\\s+(default\\s+)?/gm, "");
+  try { new Function(src); } catch (err) { postMessage({ error: err.name + ": " + err.message }); return; }
+  try { fn = new Function(src + "\\n;return typeof ${FN} === 'function' ? ${FN} : null;")(); }
+  catch (err) { postMessage({ error: err.name + ": " + err.message }); return; }
+  if (!fn) { postMessage({ error: "No function named ${FN} was found." }); return; }
+  const results = cases.map(c => {
+    const g = structuredClone(graphs[c.graph]), before = JSON.stringify(g);
+    const want = c.want === "-Infinity" ? -Infinity : c.want;
+    let got, ok = false;
+    try {
+      const r = fn(c.person, g);
+      got = show(r);
+      const same = JSON.stringify(g) === before;
+      ok = Object.is(r, want) && same;
+      if (!same) got += " (and contactGraph was changed)";
+    } catch (err) {
+      got = err instanceof RangeError ? "RangeError: too much recursion. Does every path reach a base case?" : err.name + ": " + err.message;
+    }
+    return { person: c.person, graph: c.graph, want: c.want, got, ok };
+  });
+  postMessage({ results });
 };`;
-let worker = null, workerReady = false;
-function getWorker() {
-  if (!worker) { worker = new Worker(URL.createObjectURL(new Blob([PY_WORKER], { type: "text/javascript" }))); workerReady = false; }
-  return worker;
-}
+let worker = null;
 function runTests(code) {
   return new Promise(resolve => {
-    const w = getWorker();
-    const limit = workerReady ? 6000 : 60000;
-    const timer = setTimeout(() => { w.terminate(); worker = null; resolve({ error: workerReady ? "Your code took too long to finish. Is there a loop that never ends?" : "The test runner didn't load. Check the internet connection and try again." }); }, limit);
-    w.onmessage = e => { clearTimeout(timer); workerReady = true; resolve(JSON.parse(e.data)); };
-    w.postMessage({ code, cases: CASES });
+    if (!worker) worker = new Worker(URL.createObjectURL(new Blob([JS_WORKER], { type: "text/javascript" })));
+    const w = worker;
+    const timer = setTimeout(() => { w.terminate(); worker = null; resolve({ error: "Your code took too long to finish. Is there a loop that never ends?" }); }, 4000);
+    w.onmessage = e => { clearTimeout(timer); resolve(e.data); };
+    w.onerror = e => { clearTimeout(timer); e.preventDefault(); w.terminate(); worker = null; resolve({ error: e.message || "Your code couldn't run." }); };
+    w.postMessage({ code, cases: CASES, graphs: GRAPHS });
   });
 }
 
@@ -366,8 +382,9 @@ function answersUrl() {
 }
 
 function renderIntro(err) {
-  return `<div class="card"><h1>Lab 9 study</h1>
-    <p>Thanks for considering the study. It takes about 45 minutes, and after that you do Lab 9 as usual. Taking part is optional.</p>
+  return `<div class="card"><h1>${esc(CFG.lab)} study</h1>
+    <p>Thanks for considering the study. It takes about 45 minutes, and after that you do ${esc(CFG.lab)} as usual. Taking part is optional.</p>
+    <p>If you do this session, you don't need to fill in the ${esc(CFG.lab)} AI declaration.</p>
     <p>One question before you start. Near the end, some students spend 4 minutes in the corridor explaining what they worked on, out loud, as if to a classmate. If that's you, may we record it on your phone or laptop?</p>
     <ul>
       <li>Only the research team listens to it. Your instructor and TAs never hear it.</li>
@@ -385,7 +402,8 @@ function renderId(err) {
   return `<div class="card"><h1>Take a study card</h1>
     <p>Go to the front and take the <strong>top card</strong> from this pile:</p>
     <div class="pilebox">${S.audio === "yes" ? "Audio: YES" : "Audio: NO"}</div>
-    <p>Keep the card. You'll need the study ID on it again next week.</p>
+    <p>Keep the card. You'll need the study ID on it again in ${esc(CFG.nextWeek)}.</p>
+    ${PREVIEW ? `<p class="muted">Preview: type any 4 digits. You'll see Group ${PG}.</p>` : ""}
     <label class="f" for="sid">Study ID (the 4-digit number on your card)</label>
     <input id="sid" type="text" inputmode="numeric" autocomplete="off" value="${esc(S.studyId || "")}">
     <div class="row"><button id="id-go">Continue</button><button class="secondary" id="id-back">Change my audio answer</button></div>
@@ -393,13 +411,17 @@ function renderId(err) {
 }
 
 function renderConsent(err) {
+  if (PREVIEW) return `<div class="card"><h1>Consent form</h1>
+    <p>Here students open the consent form (York sign-in), with their study ID and audio answer already filled in. Its last screen shows a code word, and they type it here to go on. Nobody gets past this step without submitting the form.</p>
+    <p class="muted">Preview: the form isn't shown. Press Continue.</p>
+    <div class="row"><button id="pv-next">Continue</button></div></div>`;
   const url = consentUrl();
   return `<div class="card"><h1>Consent form</h1>
     <div class="step"><span class="num">1</span><div>Open the consent form. Your study ID and audio answer are already filled in.<div style="margin-top:10px">${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open the consent form</a>` : `<span class="error">The consent form link isn't set up. Raise your hand.</span>`}</div></div></div>
     <div class="step"><span class="num">2</span><div>Read it, fill in your name and student number, answer the questions, and press <strong>Submit</strong>.</div></div>
     <div class="step"><span class="num">3</span><div>The last screen of the form shows a <strong>code word</strong>. Type it here.
       <div style="margin-top:10px"><input id="ccode" type="text" autocomplete="off" spellcheck="false" placeholder="Code word"></div></div></div>
-    <p class="muted">If you decide not to take part, just close this page and do Lab 9 as usual.</p>
+    <p class="muted">If you decide not to take part, just close this page and do ${esc(CFG.lab)} as usual.</p>
     <div class="row"><button id="consent-go">Continue</button></div>
     ${err ? `<div class="error">${esc(err)}</div>` : ""}</div>`;
 }
@@ -408,8 +430,8 @@ function renderWarmup(err) {
   const w = S.warmupDraft || {};
   return `<div class="card"><h1>Warm-up</h1>
     <p>About 5 minutes. It isn't graded, and wrong answers don't count against you. Work it out yourself: no AI, no notes, no running code.</p></div>
-    <div class="card"><h2>Python basics</h2>
-    ${WARMUP.map((it, n) => `<div class="item"><p class="q">${n + 1}. ${it.q}</p>${radios(it.id, it.opts.map(esc), w[it.id], ROT[it.id])}</div>`).join("")}</div>
+    <div class="card"><h2>JavaScript and recursion</h2>
+    ${WARMUP.map((it, n) => `<div class="item"><p class="q">${n + 1}. ${it.q}</p>${radios(it.id, it.opts.map(o => /\s/.test(o) ? esc(o) : `<code>${esc(o)}</code>`), w[it.id], ROT[it.id])}</div>`).join("")}</div>
     <div class="card"><h2>About you</h2>
     ${BACKGROUND.map((it, n) => `<div class="item"><p class="q">${n + 6}. ${esc(it.q)}</p>${it.multi ? checks(it.id, it.opts, w[it.id]) : radios(it.id, it.opts.map(esc), w[it.id])}</div>`).join("")}
     <div class="row"><button id="warm-go">Continue</button></div>
@@ -418,9 +440,9 @@ function renderWarmup(err) {
 
 function renderReady(err) {
   const what = S.group === "A"
-    ? "You'll work on one Lab 9 question on this page, without AI. A study note on strings and sets is on the page, and you can also use your own lecture notes."
-    : "You'll work on one Lab 9 question on this page, with the study assistant on the page.";
-  const codeBox = S.group === "A" ? "" : (key ? `<p class="saved">Study assistant unlocked.</p>` : `<label class="f" for="scode">Session code (on the screen at the front)</label><input id="scode" type="text" autocomplete="off" spellcheck="false">`);
+    ? `You'll work on one ${CFG.lab} question on this page, without AI. A study note on recursion is on the page, and you can also use your own lecture notes.`
+    : `You'll work on one ${CFG.lab} question on this page, with the study assistant on the page.`;
+  const codeBox = S.group === "A" ? "" : (key ? `<p class="saved">Study assistant unlocked.</p>` : `<label class="f" for="scode">Session code (on the screen at the front)</label><input id="scode" type="text" autocomplete="off" spellcheck="false">${PREVIEW ? `<p class="muted">Preview: leave it blank.</p>` : ""}`);
   return `${groupLine()}<div class="card"><h1>Ready when you are</h1>
     <p>${what}</p>
     <p>You'll have <strong>${CFG.minutes.learn} minutes</strong>. Write your code in the box on this page. You can press <strong>Run tests</strong> as often as you like.</p>
@@ -432,11 +454,11 @@ function renderReady(err) {
 
 function resultsHtml(r) {
   if (!r) return "";
-  if (r.running) return `<p class="muted">Running… (the first run takes a few seconds to load Python)</p>`;
+  if (r.running) return `<p class="muted">Running…</p>`;
   if (r.error) return `<div class="err">${esc(r.error)}</div>`;
   const n = r.results.filter(x => x.ok).length;
   return `<p><strong>${n} of ${r.results.length} tests passed.</strong></p>` + r.results.map(x =>
-    `<div class="r"><span class="${x.ok ? "ok" : "no"}">${x.ok ? "✓" : "✗"}</span><div><code>${FN}(${esc(JSON.stringify(x.arg))})</code><br><span class="muted">expected ${esc(x.want === "AssertionError" ? "AssertionError" : JSON.stringify(x.want).replace(/"/g, "'").replace(/,/g, ", "))} · got ${esc(x.got)}</span></div></div>`).join("");
+    `<div class="r"><span class="${x.ok ? "ok" : "no"}">${x.ok ? "✓" : "✗"}</span><div><code>${FN}(${esc(JSON.stringify(x.person))}, ${esc(x.graph)})</code><br><span class="muted">expected ${esc(String(x.want))} · got ${esc(x.got)}</span></div></div>`).join("");
 }
 let lastResult = null;
 
@@ -516,6 +538,10 @@ function renderJol(err) {
 }
 
 function renderSubmit(err) {
+  if (PREVIEW) return `<div class="card"><h1>Last step: send your answers</h1>
+    <p>Here students open the answers form (no sign-in). Their warm-up, code, page log and estimate are already filled in, packed into one box. Its last screen shows a code word, and they type it here to finish.</p>
+    <p class="muted">Preview: nothing is sent. Press Continue.</p>
+    <div class="row"><button id="pv-next">Continue</button></div></div>`;
   const url = answersUrl();
   return `<div class="card"><h1>Last step: send your answers</h1>
     <div class="step"><span class="num">1</span><div>Open the form. Your answers and code are already filled in. Don't change them.<div style="margin-top:10px">${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open the form</a>` : `<span class="error">The form link isn't set up. Raise your hand.</span>`}</div></div></div>
@@ -531,7 +557,7 @@ function renderSubmit(err) {
 
 function renderDone() {
   return `<div class="card"><h1>That's it. Thank you!</h1>
-    <p>Now carry on with ${esc(CFG.lab)} as usual. Your code from the study is below. If you want, copy it into your own <code>lab7_task4.py</code> and keep working on it. Submit the lab the normal way (deadline: ${esc(CFG.labDeadline)}).</p>
+    <p>Now carry on with ${esc(CFG.lab)} as usual. Your code from the study is below. If you want, copy it into your own ${esc(CFG.lab)} code and keep working on it. Submit the lab the normal way (deadline: ${esc(CFG.labDeadline)}).</p>
     <p>Keep your study card. You'll need the ID on it at the start of ${esc(CFG.nextWeek)}.</p></div>
     <div class="card"><h2>Your code</h2><textarea class="code" readonly style="min-height:260px">${esc(S.finalCode || S.code)}</textarea>
     <div class="row"><button class="secondary" id="copy-code">Copy code</button></div></div>`;
@@ -544,6 +570,7 @@ async function render(err) {
   const who = document.getElementById("who");
   who.hidden = !S.group; who.textContent = S.group ? `ID ${S.studyId} · Group ${S.group}` : "";
   app.innerHTML = (VIEWS[S.phase] || renderIntro)(err);
+  if (PREVIEW) previewBar();
   bar(); wire();
   const note = document.getElementById("note");
   if (note) note.innerHTML = await loadNote();
@@ -578,11 +605,13 @@ function wire() {
     const sid = $("sid").value.replace(/\D/g, "");
     const c = CFG.cards[sid];
     if (!sid) return render("Type the study ID from your card.");
+    if (PREVIEW) { Object.assign(S, { studyId: sid, group: PG }); return setPhase("consent"); }
     if (!c && sid !== "0000") return render(`${sid} isn't a study ID for this lab. Check the number on your card. If it's right, raise your hand.`);
-    const [group, pile] = c || [["A", "C"].includes(QS.get("g")) ? QS.get("g") : "B", S.audio];
+    const [group, pile] = c || [PG, S.audio];
     if (pile !== S.audio) return render(`That card is from the "Audio: ${pile.toUpperCase()}" pile, but you answered ${S.audio === "yes" ? "Yes" : "No"} to audio recording. Put it back and take the top card from the "Audio: ${S.audio.toUpperCase()}" pile.`);
     Object.assign(S, { studyId: sid, group }); setPhase("consent");
   };
+  if ($("pv-next")) $("pv-next").onclick = skip;
   if ($("consent-go")) $("consent-go").onclick = () => {
     const v = $("ccode").value.trim().toLowerCase();
     if (!v) return render("Type the code word from the form's last screen.");
@@ -761,11 +790,33 @@ document.addEventListener("keydown", e => {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "b" && S.studyId) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([packed() + "\n\n" + (S.finalCode || S.code) + "\n\n" + JSON.stringify(S.transcript)], { type: "text/plain" }));
-    a.download = `lab9-backup-${S.studyId}.txt`; a.click();
+    a.download = `lab7-backup-${S.studyId}.txt`; a.click();
   }
 });
 
-if (QS.has("reset")) { localStorage.removeItem(STORE); S = fresh(); history.replaceState(null, "", location.pathname + (MOCK ? "?mock=1" + (FAST ? "&fast=1" : "") : "")); }
+function previewUrl(g) { return location.pathname + "?preview=1&g=" + g + "&reset=1"; }
+function skip() {
+  const p = S.phase;
+  if (p === "intro") { S.audio = S.audio || "yes"; return setPhase("id"); }
+  if (p === "id") { Object.assign(S, { studyId: S.studyId || "1234", group: PG }); return setPhase("consent"); }
+  if (p === "warmup") { S.warmup = S.warmup || { score: null }; S.background = S.background || {}; return setPhase("ready"); }
+  if (p === "ready") { S.learnStart = Date.now(); return setPhase("learn"); }
+  if (p === "learn") return endLearn(false);
+  if (p === "follow") { stopRecording(); return setPhase("jol"); }
+  if (p === "jol") { S.jol = S.jol ?? 50; return setPhase("submit"); }
+  const i = ORDER.indexOf(p); if (i < ORDER.length - 1) setPhase(ORDER[i + 1]);
+}
+function previewBar() {
+  const pv = document.getElementById("pv");
+  pv.hidden = false;
+  pv.innerHTML = `<strong>Preview.</strong> Nothing is saved or sent, and the assistant gives a canned reply.
+    <span>See it as: ${["A", "B", "C"].map(g => `<a href="${previewUrl(g)}" class="${g === PG ? "on" : ""}">Group ${g}</a>`).join(" ")}</span>
+    ${S.phase === "done" ? "" : `<button class="link" id="pv-skip">Skip to the next step →</button>`}
+    <a href="${previewUrl(PG)}">Start over</a>`;
+  const b = document.getElementById("pv-skip"); if (b) b.onclick = skip;
+}
+
+if (QS.has("reset")) { localStorage.removeItem(STORE); S = fresh(); history.replaceState(null, "", location.pathname + (PREVIEW ? "?preview=1&g=" + PG : MOCK ? "?mock=1" + (FAST ? "&fast=1" : "") : "")); }
 if (S.phase === "learn" && remaining(S.learnStart, LEARN_MS()) === 0) endLearn(true);
 render();
 </script>

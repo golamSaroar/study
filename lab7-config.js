@@ -4,7 +4,12 @@ window.STUDY_CONFIG = {
   "model": "gpt-6.1-sol",
   "reasoningEffort": "low",
   "systemPrompt": "You are a helpful assistant.",
-  "encryptedKey": null,
+  "encryptedKey": {
+    "salt": "KdvmzWmhgGeR4mTtwiq46w==",
+    "iv": "UNKn/nhkcCz74chr",
+    "ct": "Nh7utbD8MxQhh7Io9sojeEovaRAYdUr7flj8WMrfXud00AZzxae9UCw/MeECdTRUJnXjuMpygdAo5glISDWCjsVTbD8Dsnb2Jm+bbCvOEQBNZ4ap/OlbC70Jjr2/ZaHB8W0i0HsBq+LiFpdlEt57iBcNNc44n6k6mBOa5ALJCq0ua5Nr+TQBNAD9vK07vnukR03muSHN264ruwBUXTWZ8I8Yzc9pTQ9oDr53vHzzinclBOAWFLxo",
+    "iterations": 300000
+  },
   "minutes": {
     "learn": 25,
     "followUp": 4
@@ -16,14 +21,14 @@ window.STUDY_CONFIG = {
   "recordUrl": "lab7-record.html",
   "forms": {
     "consent": {
-      "prefill": "",
-      "code": ""
+      "prefill": "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=GBNTNBFw1E-H8KQ4FsSb0MWXAo-HQxxPsEpJx0M3nBNUN01EVDRGRTJHWDFYS0hERU5aM0k1MDA1Qi4u&r09e0f47ef3c44826800f3ed12c8c1ff3=zzSIDzz&r7df1f3d43c254c2ca0762892098368cd=%22zzAUDzz%22",
+      "code": "WILLOW"
     },
     "answers": {
-      "prefill": "",
-      "code": ""
+      "prefill": "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=GBNTNBFw1E-H8KQ4FsSb0MWXAo-HQxxPsEpJx0M3nBNUNlo2RkVaUkk5OFNSMFpGR0Q2S0ZBUERSSS4u&r23f4fd87d9aa408db03b7c40869698db=zzSIDzz&r57fa6809b9374dc0b858334f6371a66e=zzANSzz&r89c07ee633b7435d97de5962e0368033=zzCODEzz",
+      "code": "CEDAR"
     },
-    "upload": ""
+    "upload": "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=GBNTNBFw1E-H8KQ4FsSb0MWXAo-HQxxPsEpJx0M3nBNUNVUzMTE4OTVLRzZNOVpBTTZBOUtQTElKNy4u"
   },
   "goal": "Your goal for these 25 minutes is to understand how a recursive function explores a contact graph, not just to get code that passes.",
   "teachBackPrompt": "Imagine you're explaining this to another student who hasn't learned it yet. Explain how getMaxDistanceToLeaf works: what the base cases are, how the recursive calls on a person's contacts combine into one answer, and why the visited set is needed and when someone is taken out of it again. Describe the important steps and any mistakes someone should avoid. Don't just recite the code. Explain the reasoning in your own words.",
